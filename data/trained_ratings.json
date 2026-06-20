@@ -1,38 +1,38 @@
 {
   "Alemania": {
-    "attack": 0.7794,
-    "defense": 1.7301
+    "attack": 0.7607,
+    "defense": 1.7508
   },
   "Argentina": {
-    "attack": 1.4498,
-    "defense": 2.0688
+    "attack": 1.4489,
+    "defense": 2.0703
   },
   "Brasil": {
-    "attack": 1.1558,
-    "defense": 1.2828
+    "attack": 1.1423,
+    "defense": 1.3146
   },
   "Canada": {
-    "attack": 1.4375,
-    "defense": 2.3485
+    "attack": 1.5201,
+    "defense": 2.3806
   },
   "Colombia": {
-    "attack": 0.7794,
-    "defense": 1.7301
+    "attack": 0.7607,
+    "defense": 1.7508
   },
   "Espana": {
-    "attack": 1.1558,
-    "defense": 1.2828
+    "attack": 1.1423,
+    "defense": 1.3146
   },
   "Estados Unidos": {
-    "attack": 0.469,
-    "defense": 0.25
+    "attack": 0.47,
+    "defense": 0.232
   },
   "Francia": {
-    "attack": 1.4498,
-    "defense": 2.0688
+    "attack": 1.4489,
+    "defense": 2.0703
   },
   "Mexico": {
-    "attack": 0.3234,
-    "defense": 0.7662
+    "attack": 0.3061,
+    "defense": 0.7751
   }
 }

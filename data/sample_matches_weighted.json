@@ -1,0 +1,52 @@
+{
+  "matches": [
+    {
+      "home_team": "Mexico",
+      "away_team": "Canada",
+      "home_goals": 2,
+      "away_goals": 1,
+      "is_neutral": false,
+      "weight": 0.50
+    },
+    {
+      "home_team": "Canada",
+      "away_team": "Estados Unidos",
+      "home_goals": 1,
+      "away_goals": 1,
+      "is_neutral": false,
+      "weight": 0.75
+    },
+    {
+      "home_team": "Estados Unidos",
+      "away_team": "Mexico",
+      "home_goals": 1,
+      "away_goals": 0,
+      "is_neutral": false,
+      "weight": 1.00
+    },
+    {
+      "home_team": "Francia",
+      "away_team": "Argentina",
+      "home_goals": 3,
+      "away_goals": 3,
+      "is_neutral": true,
+      "weight": 1.25
+    },
+    {
+      "home_team": "Brasil",
+      "away_team": "Colombia",
+      "home_goals": 2,
+      "away_goals": 1,
+      "is_neutral": true,
+      "weight": 1.50
+    },
+    {
+      "home_team": "Espana",
+      "away_team": "Alemania",
+      "home_goals": 2,
+      "away_goals": 1,
+      "is_neutral": true,
+      "weight": 1.50
+    }
+  ]
+}

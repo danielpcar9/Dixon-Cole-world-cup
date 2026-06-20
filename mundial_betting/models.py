@@ -32,7 +32,7 @@ class MatchData(BaseModel):
     home_goals: int = Field(ge=0)
     away_goals: int = Field(ge=0)
     is_neutral: bool = False
-    weight: float = Field(default=1.0, gt=0.0)
+    weight: float = Field(default=1.0, gt=0)
 
     @model_validator(mode="after")
     def prevent_same_team(self) -> "MatchData":
@@ -43,7 +43,6 @@ class MatchData(BaseModel):
 
 class TrainRequest(BaseModel):
     matches: list[MatchData] = Field(min_length=1)
-    lambda_reg: float = Field(default=0.01, ge=0.0)
 
 
 class TeamResponse(BaseModel):
