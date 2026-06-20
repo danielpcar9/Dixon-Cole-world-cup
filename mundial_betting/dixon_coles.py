@@ -245,7 +245,7 @@ def negative_log_likelihood(params: np.ndarray, matches: list[MatchData], team_i
         if correction <= 0:
             return 1e10
 
-        log_likelihood += (
+        log_likelihood += match.weight * (
             log(correction)
             - lmbda
             + match.home_goals * log(lmbda)
