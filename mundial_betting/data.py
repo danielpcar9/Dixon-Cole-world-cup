@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -99,3 +101,43 @@ def get_team(name: str) -> TeamRating:
         return TEAMS[normalized]
     except KeyError as exc:
         raise KeyError(f"Unknown team: {name}") from exc
+
+
+TRAINED_RATINGS_PATH = Path(__file__).resolve().parent.parent / "data" / "trained_ratings.json"
+
+
+def load_trained_ratings() -> None:
+    if not TRAINED_RATINGS_PATH.exists():
+        return
+    try:
+        with open(TRAINED_RATINGS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for team_name, rating_data in data.items():
+            norm_name = normalize_team_name(team_name)
+            existing = TEAMS.get(norm_name)
+            flag = existing.flag if existing else "UN"
+            host = existing.host if existing else False
+            
+            TEAMS[norm_name] = TeamRating(
+                attack=float(rating_data["attack"]),
+                defense=float(rating_data["defense"]),
+                flag=flag,
+                host=host,
+            )
+    except Exception as exc:
+        print(f"Warning: Failed to load trained ratings from {TRAINED_RATINGS_PATH}: {exc}")
+
+
+def save_trained_ratings(trained_teams: dict[str, dict[str, float]]) -> None:
+    try:
+        TRAINED_RATINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(TRAINED_RATINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(trained_teams, f, indent=2, ensure_ascii=False)
+        load_trained_ratings()
+    except Exception as exc:
+        print(f"Error: Failed to save trained ratings: {exc}")
+        raise exc
+
+
+# Load saved ratings if they exist
+load_trained_ratings()

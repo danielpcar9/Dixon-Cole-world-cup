@@ -62,3 +62,40 @@ def test_train_ratings_returns_team_parameters() -> None:
 
     assert "global_parameters" in result
     assert set(result["teams"]) == {"Canada", "Estados Unidos", "Mexico"}
+
+
+def test_train_endpoint_persists_ratings() -> None:
+    import os
+    from mundial_betting.data import TRAINED_RATINGS_PATH, TEAMS, load_trained_ratings
+
+    old_file_exists = TRAINED_RATINGS_PATH.exists()
+    old_file_content = None
+    if old_file_exists:
+        with open(TRAINED_RATINGS_PATH, "r", encoding="utf-8") as f:
+            old_file_content = f.read()
+        os.remove(TRAINED_RATINGS_PATH)
+
+    client = TestClient(app)
+    try:
+        response = client.post(
+            "/train",
+            json={
+                "matches": [
+                    {"home_team": "Mexico", "away_team": "Canada", "home_goals": 2, "away_goals": 1},
+                    {"home_team": "Canada", "away_team": "Estados Unidos", "home_goals": 1, "away_goals": 1},
+                    {"home_team": "Estados Unidos", "away_team": "Mexico", "home_goals": 1, "away_goals": 0},
+                    {"home_team": "Mexico", "away_team": "Estados Unidos", "home_goals": 0, "away_goals": 0},
+                ]
+            }
+        )
+        assert response.status_code == 200
+        assert TRAINED_RATINGS_PATH.exists()
+        assert "Mexico" in TEAMS
+    finally:
+        if TRAINED_RATINGS_PATH.exists():
+            os.remove(TRAINED_RATINGS_PATH)
+        if old_file_exists and old_file_content is not None:
+            with open(TRAINED_RATINGS_PATH, "w", encoding="utf-8") as f:
+                f.write(old_file_content)
+        load_trained_ratings()
+

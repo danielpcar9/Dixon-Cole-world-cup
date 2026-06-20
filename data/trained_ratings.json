@@ -1,0 +1,38 @@
+{
+  "Alemania": {
+    "attack": 0.7794,
+    "defense": 1.7301
+  },
+  "Argentina": {
+    "attack": 1.4498,
+    "defense": 2.0688
+  },
+  "Brasil": {
+    "attack": 1.1558,
+    "defense": 1.2828
+  },
+  "Canada": {
+    "attack": 1.4375,
+    "defense": 2.3485
+  },
+  "Colombia": {
+    "attack": 0.7794,
+    "defense": 1.7301
+  },
+  "Espana": {
+    "attack": 1.1558,
+    "defense": 1.2828
+  },
+  "Estados Unidos": {
+    "attack": 0.469,
+    "defense": 0.25
+  },
+  "Francia": {
+    "attack": 1.4498,
+    "defense": 2.0688
+  },
+  "Mexico": {
+    "attack": 0.3234,
+    "defense": 0.7662
+  }
+}

@@ -55,7 +55,10 @@ def predict(payload: PredictRequest) -> dict[str, object]:
 @app.post("/train")
 def train(payload: TrainRequest) -> dict[str, object]:
     try:
-        return train_ratings(payload.matches)
+        result = train_ratings(payload.matches)
+        from mundial_betting.data import save_trained_ratings
+        save_trained_ratings(result["teams"])
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
