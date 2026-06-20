@@ -99,3 +99,25 @@ def test_train_endpoint_persists_ratings() -> None:
                 f.write(old_file_content)
         load_trained_ratings()
 
+
+def test_train_ratings_with_weights() -> None:
+    # Baseline with uniform weights
+    matches_uniform = [
+        MatchData(home_team="Mexico", away_team="Canada", home_goals=3, away_goals=0, weight=1.0),
+        MatchData(home_team="Canada", away_team="Estados Unidos", home_goals=0, away_goals=3, weight=1.0),
+        MatchData(home_team="Estados Unidos", away_team="Mexico", home_goals=0, away_goals=3, weight=1.0),
+    ]
+    res_uniform = train_ratings(matches_uniform)
+
+    # Heavily weight the second match (Canada vs Estados Unidos) which was a 0-3 win for Estados Unidos
+    matches_weighted = [
+        MatchData(home_team="Mexico", away_team="Canada", home_goals=3, away_goals=0, weight=1.0),
+        MatchData(home_team="Canada", away_team="Estados Unidos", home_goals=0, away_goals=3, weight=100.0),
+        MatchData(home_team="Estados Unidos", away_team="Mexico", home_goals=0, away_goals=3, weight=1.0),
+    ]
+    res_weighted = train_ratings(matches_weighted)
+
+    # Ratings should differ because of the weights
+    assert res_uniform["teams"] != res_weighted["teams"]
+
+
