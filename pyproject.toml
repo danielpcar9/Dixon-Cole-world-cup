@@ -1,0 +1,26 @@
+[project]
+name = "mundial-betting"
+version = "0.1.0"
+description = "Dixon-Coles model and FastAPI backend for World Cup match predictions."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111",
+    "numpy>=1.26",
+    "pydantic>=2.7",
+    "scipy>=1.13",
+    "uvicorn[standard]>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["mundial_betting*"]

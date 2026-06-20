@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mundial Betting</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --ink: #172033;
+        --muted: #647087;
+        --line: #d9dfeb;
+        --blue: #1f5eff;
+        --green: #087f5b;
+        --red: #c92a2a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      header {
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .bar,
+      main {
+        width: min(1120px, calc(100vw - 32px));
+        margin: 0 auto;
+      }
+
+      .bar {
+        min-height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .mark {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        background: var(--ink);
+        color: white;
+        font-size: 13px;
+      }
+
+      main {
+        padding: 32px 0 48px;
+        display: grid;
+        grid-template-columns: minmax(320px, 440px) 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(30px, 5vw, 54px);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 18px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #344154;
+      }
+
+      select,
+      input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #f9fbff;
+        color: var(--ink);
+        padding: 12px;
+        font: inherit;
+        font-weight: 650;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+
+      .grid.two {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .inline {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .inline input {
+        width: 18px;
+        height: 18px;
+      }
+
+      button {
+        min-height: 48px;
+        border: 0;
+        border-radius: 8px;
+        background: var(--blue);
+        color: white;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+
+      .result-head {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .xg {
+        font-size: 34px;
+        font-weight: 850;
+        letter-spacing: 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 12px 8px;
+        border-bottom: 1px solid #edf1f7;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+
+      .pick {
+        display: inline-flex;
+        justify-content: center;
+        min-width: 58px;
+        border-radius: 6px;
+        padding: 5px 8px;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .BET {
+        background: #dff8ec;
+        color: var(--green);
+      }
+
+      .SKIP {
+        background: #edf1f7;
+        color: #56637a;
+      }
+
+      .FADE {
+        background: #ffe3e3;
+        color: var(--red);
+      }
+
+      .scores {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .score {
+        background: #111827;
+        color: white;
+        border-radius: 8px;
+        padding: 16px;
+        text-align: center;
+      }
+
+      .score strong {
+        display: block;
+        font-size: 28px;
+      }
+
+      .score span {
+        color: #aab6ca;
+        font-size: 13px;
+      }
+
+      .error {
+        color: var(--red);
+        font-weight: 700;
+      }
+
+      @media (max-width: 860px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+
+        .grid,
+        .grid.two,
+        .scores {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <div class="brand"><span class="mark">MB</span><span>Mundial Betting</span></div>
+        <p>FastAPI + Dixon-Coles</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="stack">
+        <div>
+          <h1>Predicciones del Mundial</h1>
+          <p>Calcula probabilidades 1X2, goles, ambos anotan y edge contra cuotas sin vig.</p>
+        </div>
+
+        <form id="form" class="panel stack">
+          <div class="grid two">
+            <label>
+              Local
+              <select id="home"></select>
+            </label>
+            <label>
+              Visitante
+              <select id="away"></select>
+            </label>
+          </div>
+
+          <label class="inline">
+            <input id="neutral" type="checkbox" />
+            Sede neutral
+          </label>
+
+          <label>
+            Formato de cuota
+            <select id="oddsFormat">
+              <option value="american">Americano</option>
+              <option value="decimal">Decimal</option>
+            </select>
+          </label>
+
+          <div class="grid">
+            <label>Local<input id="oddHome" value="-120" /></label>
+            <label>Empate<input id="oddDraw" value="280" /></label>
+            <label>Visitante<input id="oddAway" value="350" /></label>
+          </div>
+
+          <div class="grid two">
+            <label>Over 2.5<input id="oddOver" value="-110" /></label>
+            <label>Under 2.5<input id="oddUnder" value="-110" /></label>
+          </div>
+
+          <div class="grid two">
+            <label>BTTS Si<input id="oddBttsYes" value="-105" /></label>
+            <label>BTTS No<input id="oddBttsNo" value="-115" /></label>
+          </div>
+
+          <button id="submit" type="submit">Calcular picks</button>
+          <p id="error" class="error"></p>
+        </form>
+      </section>
+
+      <section id="result" class="panel stack">
+        <p>Elige un partido y calcula para ver resultados.</p>
+      </section>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const teams = [
+        "Alemania",
+        "Arabia Saudita",
+        "Argelia",
+        "Argentina",
+        "Australia",
+        "Austria",
+        "Belgica",
+        "Brasil",
+        "Cabo Verde",
+        "Canada",
+        "Colombia",
+        "Corea del Sur",
+        "Costa de Marfil",
+        "Croacia",
+        "Ecuador",
+        "Egipto",
+        "Espana",
+        "Estados Unidos",
+        "Francia",
+        "Inglaterra",
+        "Japon",
+        "Marruecos",
+        "Mexico",
+        "Paises Bajos",
+        "Portugal",
+        "Uruguay",
+      ];
+
+      function option(team) {
+        return `<option value="${team}">${team}</option>`;
+      }
+
+      $("home").innerHTML = teams.map(option).join("");
+      $("away").innerHTML = teams.map(option).join("");
+      $("home").value = "Estados Unidos";
+      $("away").value = "Mexico";
+
+      function asNumber(id) {
+        const value = $(id).value.trim();
+        return value === "" ? null : Number(value);
+      }
+
+      function pct(value) {
+        return `${(value * 100).toFixed(1)}%`;
+      }
+
+      function edgeCell(edge) {
+        if (!edge) return "<td>-</td><td>-</td>";
+        return `<td>${edge.edge >= 0 ? "+" : ""}${pct(edge.edge)}</td><td><span class="pick ${edge.pick}">${edge.pick}</span></td>`;
+      }
+
+      function marketRow(label, key, data) {
+        return `<tr><td>${label}</td><td>${pct(data.markets[key])}</td>${edgeCell(data.edges?.[key])}</tr>`;
+      }
+
+      function renderResult(data) {
+        const scores = data.exact_scores
+          .slice(0, 3)
+          .map(
+            (score) =>
+              `<div class="score"><strong>${score.home_goals}-${score.away_goals}</strong><span>${pct(score.probability)}</span></div>`,
+          )
+          .join("");
+
+        $("result").innerHTML = `
+          <div class="result-head">
+            <div>
+              <h2>${data.home_team} vs ${data.away_team}</h2>
+              <p>xG del modelo</p>
+            </div>
+            <div class="xg">${data.expected_goals.home.toFixed(2)} - ${data.expected_goals.away.toFixed(2)}</div>
+          </div>
+          <table>
+            <thead><tr><th>Mercado</th><th>Modelo</th><th>Edge</th><th>Pick</th></tr></thead>
+            <tbody>
+              ${marketRow("Local", "home", data)}
+              ${marketRow("Empate", "draw", data)}
+              ${marketRow("Visitante", "away", data)}
+              ${marketRow("Over 2.5", "over_25", data)}
+              ${marketRow("Under 2.5", "under_25", data)}
+              ${marketRow("BTTS Si", "btts_yes", data)}
+              ${marketRow("BTTS No", "btts_no", data)}
+            </tbody>
+          </table>
+          <div class="scores">${scores}</div>
+        `;
+      }
+
+      $("form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        $("error").textContent = "";
+        $("submit").disabled = true;
+
+        try {
+          const response = await fetch("/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              home_team: $("home").value,
+              away_team: $("away").value,
+              neutral: $("neutral").checked,
+              odds_format: $("oddsFormat").value,
+              odds: {
+                home: asNumber("oddHome"),
+                draw: asNumber("oddDraw"),
+                away: asNumber("oddAway"),
+                over_25: asNumber("oddOver"),
+                under_25: asNumber("oddUnder"),
+                btts_yes: asNumber("oddBttsYes"),
+                btts_no: asNumber("oddBttsNo"),
+              },
+            }),
+          });
+
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || "No se pudo calcular");
+          renderResult(data);
+        } catch (error) {
+          $("error").textContent = error.message;
+        } finally {
+          $("submit").disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
