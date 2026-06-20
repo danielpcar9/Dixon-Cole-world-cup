@@ -337,43 +337,34 @@
 
     <script>
       const $ = (id) => document.getElementById(id);
-      const teams = [
-        "Alemania",
-        "Arabia Saudita",
-        "Argelia",
-        "Argentina",
-        "Australia",
-        "Austria",
-        "Belgica",
-        "Brasil",
-        "Cabo Verde",
-        "Canada",
-        "Colombia",
-        "Corea del Sur",
-        "Costa de Marfil",
-        "Croacia",
-        "Ecuador",
-        "Egipto",
-        "Espana",
-        "Estados Unidos",
-        "Francia",
-        "Inglaterra",
-        "Japon",
-        "Marruecos",
-        "Mexico",
-        "Paises Bajos",
-        "Portugal",
-        "Uruguay",
-      ];
+      let teamLabels = {};
 
-      function option(team) {
-        return `<option value="${team}">${team}</option>`;
+      function option(id, label) {
+        return `<option value="${id}">${label}</option>`;
       }
 
-      $("home").innerHTML = teams.map(option).join("");
-      $("away").innerHTML = teams.map(option).join("");
-      $("home").value = "Estados Unidos";
-      $("away").value = "Mexico";
+      function teamLabel(name) {
+        return teamLabels[name] || name;
+      }
+
+      async function loadTeams() {
+        const response = await fetch("/teams");
+        const data = await response.json();
+        if (!response.ok) throw new Error("No se pudieron cargar los equipos");
+
+        teamLabels = Object.fromEntries(
+          Object.entries(data).map(([id, team]) => [id, team.display_name]),
+        );
+
+        const teams = Object.entries(data)
+          .map(([id, team]) => ({ id, label: team.display_name }))
+          .sort((a, b) => a.label.localeCompare(b.label, "es"));
+
+        $("home").innerHTML = teams.map(({ id, label }) => option(id, label)).join("");
+        $("away").innerHTML = teams.map(({ id, label }) => option(id, label)).join("");
+        $("home").value = "Japon";
+        $("away").value = "Tunez";
+      }
 
       function asNumber(id) {
         const value = $(id).value.trim();
@@ -405,7 +396,7 @@
         $("result").innerHTML = `
           <div class="result-head">
             <div>
-              <h2>${data.home_team} vs ${data.away_team}</h2>
+              <h2>${teamLabel(data.home_team)} vs ${teamLabel(data.away_team)}</h2>
               <p>xG del modelo</p>
             </div>
             <div class="xg">${data.expected_goals.home.toFixed(2)} - ${data.expected_goals.away.toFixed(2)}</div>
@@ -425,6 +416,10 @@
           <div class="scores">${scores}</div>
         `;
       }
+
+      loadTeams().catch((error) => {
+        $("error").textContent = error.message;
+      });
 
       $("form").addEventListener("submit", async (event) => {
         event.preventDefault();

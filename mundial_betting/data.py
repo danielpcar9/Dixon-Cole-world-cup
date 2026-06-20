@@ -80,10 +80,17 @@ ALIASES = {
     "Uzbekistán": "Uzbekistan",
 }
 
+DISPLAY_NAMES: dict[str, str] = {canonical: accented for accented, canonical in ALIASES.items()}
+
 
 def normalize_team_name(name: str) -> str:
     cleaned = " ".join(name.strip().split())
     return ALIASES.get(cleaned, cleaned)
+
+
+def get_display_name(name: str) -> str:
+    normalized = normalize_team_name(name)
+    return DISPLAY_NAMES.get(normalized, normalized)
 
 
 def get_team(name: str) -> TeamRating:

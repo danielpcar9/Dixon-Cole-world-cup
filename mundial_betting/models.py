@@ -45,6 +45,7 @@ class TrainRequest(BaseModel):
 
 
 class TeamResponse(BaseModel):
+    display_name: str
     attack: float
     defense: float
     flag: str
