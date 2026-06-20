@@ -347,17 +347,21 @@
         return teamLabels[name] || name;
       }
 
+      function displayName(id, team) {
+        return team.display_name || id;
+      }
+
       async function loadTeams() {
         const response = await fetch("/teams");
         const data = await response.json();
         if (!response.ok) throw new Error("No se pudieron cargar los equipos");
 
         teamLabels = Object.fromEntries(
-          Object.entries(data).map(([id, team]) => [id, team.display_name]),
+          Object.entries(data).map(([id, team]) => [id, displayName(id, team)]),
         );
 
         const teams = Object.entries(data)
-          .map(([id, team]) => ({ id, label: team.display_name }))
+          .map(([id, team]) => ({ id, label: displayName(id, team) }))
           .sort((a, b) => a.label.localeCompare(b.label, "es"));
 
         $("home").innerHTML = teams.map(({ id, label }) => option(id, label)).join("");
