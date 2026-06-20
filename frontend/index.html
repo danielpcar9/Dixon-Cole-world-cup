@@ -7,186 +7,559 @@
     <style>
       :root {
         color-scheme: light;
-        --bg: #f6f7fb;
-        --panel: #ffffff;
-        --ink: #172033;
-        --muted: #647087;
-        --line: #d9dfeb;
-        --blue: #1f5eff;
+        --bg: #eef2f7;
+        --surface: #fbfcff;
+        --surface-strong: #ffffff;
+        --ink: #111827;
+        --muted: #697386;
+        --soft: #e2e8f0;
+        --soft-2: #f1f5f9;
+        --blue: #175cff;
+        --blue-dark: #0f3ea8;
         --green: #087f5b;
-        --red: #c92a2a;
+        --green-soft: #dcfce7;
+        --red: #b42318;
+        --red-soft: #fee4e2;
+        --amber: #9a6700;
+        --amber-soft: #fff4ce;
+        --shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html {
+        scroll-behavior: smooth;
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
-        background: var(--bg);
+        background:
+          radial-gradient(circle at 15% 5%, rgba(23, 92, 255, 0.13), transparent 30%),
+          linear-gradient(180deg, #f8fafc 0%, var(--bg) 58%, #e8edf5 100%);
         color: var(--ink);
         font-family:
           Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
-      header {
-        border-bottom: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.92);
-        backdrop-filter: blur(12px);
-        position: sticky;
-        top: 0;
-        z-index: 10;
+      button,
+      input,
+      select {
+        font: inherit;
       }
 
-      .bar,
-      main {
-        width: min(1120px, calc(100vw - 32px));
+      button {
+        cursor: pointer;
+      }
+
+      .shell {
+        width: min(1180px, calc(100vw - 28px));
         margin: 0 auto;
       }
 
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.26);
+        background: rgba(248, 250, 252, 0.82);
+        backdrop-filter: blur(18px);
+      }
+
       .bar {
-        min-height: 68px;
+        min-height: 72px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
+        gap: 18px;
       }
 
       .brand {
         display: flex;
         align-items: center;
         gap: 12px;
-        font-weight: 800;
-        letter-spacing: 0;
+        min-width: 0;
       }
 
       .mark {
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
         display: grid;
         place-items: center;
         border-radius: 8px;
-        background: var(--ink);
-        color: white;
+        background: #0f172a;
+        color: #ffffff;
         font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0;
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
       }
 
-      main {
-        padding: 32px 0 48px;
-        display: grid;
-        grid-template-columns: minmax(320px, 440px) 1fr;
-        gap: 20px;
-        align-items: start;
-      }
-
-      h1 {
-        margin: 0 0 8px;
-        font-size: clamp(30px, 5vw, 54px);
-        line-height: 1;
+      .brand strong {
+        display: block;
+        font-size: 16px;
         letter-spacing: 0;
       }
 
+      .brand span:last-child {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .status-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 0 5px rgba(8, 127, 91, 0.12);
+      }
+
+      main {
+        padding: 34px 0 56px;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+      }
+
+      .intro {
+        margin-bottom: 22px;
+        animation: rise 520ms ease both;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
       p {
         margin: 0;
+      }
+
+      h1 {
+        max-width: 760px;
+        font-size: clamp(34px, 5vw, 64px);
+        line-height: 0.96;
+        letter-spacing: 0;
+      }
+
+      .intro p {
+        max-width: 620px;
+        margin-top: 14px;
         color: var(--muted);
+        font-size: 17px;
         line-height: 1.55;
       }
 
       .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid rgba(148, 163, 184, 0.32);
         border-radius: 8px;
-        padding: 18px;
+        box-shadow: var(--shadow);
       }
 
-      .stack {
-        display: grid;
+      .control-panel {
+        padding: 18px;
+        position: sticky;
+        top: 94px;
+        animation: rise 620ms 80ms ease both;
+      }
+
+      .panel-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 14px;
+        margin-bottom: 16px;
+      }
+
+      .panel-title h2,
+      .result-head h2 {
+        font-size: 18px;
+        letter-spacing: 0;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: var(--soft-2);
+        color: #475569;
+        font-size: 12px;
+        font-weight: 850;
+        white-space: nowrap;
+      }
+
+      form {
+        display: grid;
+        gap: 16px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .field-grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       label {
         display: grid;
-        gap: 6px;
+        gap: 7px;
+        min-width: 0;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 850;
+      }
+
+      .toggle-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 48px;
+        border-top: 1px solid var(--soft);
+        border-bottom: 1px solid var(--soft);
+        color: #334155;
         font-size: 13px;
-        font-weight: 700;
-        color: #344154;
+        font-weight: 850;
+      }
+
+      .toggle-line input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--blue);
       }
 
       select,
       input {
         width: 100%;
-        border: 1px solid var(--line);
+        min-height: 46px;
+        border: 1px solid #cbd5e1;
         border-radius: 8px;
-        background: #f9fbff;
+        background: #f8fafc;
         color: var(--ink);
-        padding: 12px;
-        font: inherit;
-        font-weight: 650;
+        padding: 10px 12px;
+        outline: none;
+        font-weight: 760;
+        transition:
+          border-color 160ms ease,
+          box-shadow 160ms ease,
+          background 160ms ease;
       }
 
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+      select:focus,
+      input:focus {
+        border-color: var(--blue);
+        background: #ffffff;
+        box-shadow: 0 0 0 4px rgba(23, 92, 255, 0.12);
       }
 
-      .grid.two {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .inline {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .inline input {
-        width: 18px;
-        height: 18px;
-      }
-
-      button {
-        min-height: 48px;
+      .primary {
+        min-height: 52px;
         border: 0;
         border-radius: 8px;
-        background: var(--blue);
-        color: white;
-        font: inherit;
-        font-weight: 800;
-        cursor: pointer;
+        background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+        color: #ffffff;
+        font-weight: 900;
+        box-shadow: 0 16px 34px rgba(23, 92, 255, 0.22);
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease,
+          opacity 160ms ease;
       }
 
-      button:disabled {
+      .primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 20px 42px rgba(23, 92, 255, 0.28);
+      }
+
+      .primary:active {
+        transform: translateY(0);
+      }
+
+      .primary:disabled {
         cursor: wait;
-        opacity: 0.65;
+        opacity: 0.68;
+        transform: none;
+      }
+
+      .error {
+        min-height: 20px;
+        color: var(--red);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .result-panel {
+        overflow: hidden;
+        animation: rise 700ms 140ms ease both;
+      }
+
+      .result-hero {
+        position: relative;
+        min-height: 245px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+        gap: 18px;
+        padding: 22px;
+        color: #ffffff;
+        background:
+          linear-gradient(115deg, rgba(15, 23, 42, 0.98) 0%, rgba(21, 42, 86, 0.95) 58%, rgba(23, 92, 255, 0.9) 100%);
+      }
+
+      .result-hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+        background-size: 34px 34px;
+        mask-image: linear-gradient(90deg, transparent, black 12%, black 82%, transparent);
+      }
+
+      .result-hero > * {
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero-copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 22px;
+        min-width: 0;
       }
 
       .result-head {
+        display: grid;
+        gap: 8px;
+      }
+
+      .match-line {
+        font-size: clamp(28px, 4vw, 46px);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .result-head p,
+      .empty-copy p {
+        color: rgba(255, 255, 255, 0.72);
+        line-height: 1.55;
+      }
+
+      .xg-row {
         display: flex;
-        align-items: start;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 16px;
+        align-items: end;
+        gap: 18px;
+        flex-wrap: wrap;
       }
 
       .xg {
-        font-size: 34px;
-        font-weight: 850;
+        font-size: clamp(42px, 6vw, 72px);
+        line-height: 0.95;
+        font-weight: 950;
         letter-spacing: 0;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .xg-label {
+        color: rgba(255, 255, 255, 0.74);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .pitch {
+        min-height: 200px;
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        border-radius: 8px;
+        position: relative;
+        overflow: hidden;
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.08) 50%, transparent 50%),
+          linear-gradient(180deg, rgba(7, 94, 84, 0.92), rgba(21, 128, 61, 0.74));
+        background-size: 92px 100%, 100% 100%;
+      }
+
+      .pitch::before,
+      .pitch::after {
+        content: "";
+        position: absolute;
+        border: 1px solid rgba(255, 255, 255, 0.58);
+      }
+
+      .pitch::before {
+        inset: 16px;
+        border-radius: 6px;
+      }
+
+      .pitch::after {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .midline {
+        position: absolute;
+        top: 16px;
+        bottom: 16px;
+        left: 50%;
+        width: 1px;
+        background: rgba(255, 255, 255, 0.58);
+      }
+
+      .goal {
+        position: absolute;
+        top: 50%;
+        width: 34px;
+        height: 82px;
+        transform: translateY(-50%);
+        border: 1px solid rgba(255, 255, 255, 0.58);
+      }
+
+      .goal.left {
+        left: 16px;
+        border-left: 0;
+      }
+
+      .goal.right {
+        right: 16px;
+        border-right: 0;
+      }
+
+      .ball {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: #ffffff;
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.26);
+        animation: drift 4.6s ease-in-out infinite;
+      }
+
+      .ball.one {
+        top: 34%;
+        left: 35%;
+      }
+
+      .ball.two {
+        top: 58%;
+        left: 63%;
+        animation-delay: -1.3s;
+        opacity: 0.8;
+      }
+
+      .empty-copy {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+        min-height: 205px;
+      }
+
+      .empty-copy h2 {
+        max-width: 560px;
+        color: #ffffff;
+        font-size: clamp(30px, 4.6vw, 54px);
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      .result-body {
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.92);
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      .summary-item {
+        border: 1px solid var(--soft);
+        border-radius: 8px;
+        padding: 13px;
+        background: var(--surface);
+      }
+
+      .summary-item span {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .summary-item strong {
+        display: block;
+        font-size: 22px;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--soft);
+        border-radius: 8px;
+        background: #ffffff;
       }
 
       table {
         width: 100%;
+        min-width: 620px;
         border-collapse: collapse;
       }
 
       th,
       td {
-        padding: 12px 8px;
+        padding: 13px 14px;
         border-bottom: 1px solid #edf1f7;
         text-align: right;
         font-variant-numeric: tabular-nums;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
       }
 
       th:first-child,
@@ -196,23 +569,39 @@
 
       th {
         color: var(--muted);
-        font-size: 12px;
+        background: #f8fafc;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        letter-spacing: 0;
+        white-space: nowrap;
+      }
+
+      td {
+        color: #1f2937;
+        font-weight: 760;
+      }
+
+      .edge-pos {
+        color: var(--green);
+      }
+
+      .edge-neg {
+        color: var(--red);
       }
 
       .pick {
         display: inline-flex;
         justify-content: center;
-        min-width: 58px;
-        border-radius: 6px;
-        padding: 5px 8px;
-        font-size: 12px;
-        font-weight: 850;
+        min-width: 62px;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: 950;
       }
 
       .BET {
-        background: #dff8ec;
+        background: var(--green-soft);
         color: var(--green);
       }
 
@@ -222,117 +611,247 @@
       }
 
       .FADE {
-        background: #ffe3e3;
+        background: var(--red-soft);
         color: var(--red);
       }
 
       .scores {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        margin-top: 14px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 18px;
       }
 
       .score {
-        background: #111827;
-        color: white;
+        display: grid;
+        gap: 8px;
+        min-height: 106px;
         border-radius: 8px;
         padding: 16px;
-        text-align: center;
+        background: #0f172a;
+        color: #ffffff;
+        transition:
+          transform 180ms ease,
+          background 180ms ease;
       }
 
-      .score strong {
-        display: block;
-        font-size: 28px;
+      .score:hover {
+        transform: translateY(-2px);
+        background: #172554;
       }
 
       .score span {
         color: #aab6ca;
+        font-size: 12px;
+        font-weight: 850;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .score strong {
+        display: block;
+        font-size: 34px;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .score em {
+        color: #dbeafe;
+        font-style: normal;
         font-size: 13px;
+        font-weight: 850;
       }
 
-      .error {
-        color: var(--red);
-        font-weight: 700;
+      .fade-in {
+        animation: resultIn 360ms ease both;
       }
 
-      @media (max-width: 860px) {
-        main {
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes resultIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes drift {
+        0%,
+        100% {
+          transform: translate(-2px, 0);
+        }
+
+        50% {
+          transform: translate(10px, -8px);
+        }
+      }
+
+      @media (max-width: 940px) {
+        .workspace,
+        .result-hero {
           grid-template-columns: 1fr;
         }
 
-        .grid,
-        .grid.two,
+        .control-panel {
+          position: static;
+        }
+      }
+
+      @media (max-width: 680px) {
+        .shell {
+          width: min(100vw - 22px, 1180px);
+        }
+
+        .bar {
+          min-height: 64px;
+        }
+
+        .status {
+          display: none;
+        }
+
+        main {
+          padding-top: 24px;
+        }
+
+        .field-grid,
+        .field-grid.three,
+        .summary-grid,
         .scores {
           grid-template-columns: 1fr;
+        }
+
+        .result-hero,
+        .result-body,
+        .control-panel {
+          padding: 16px;
+        }
+
+        .pitch {
+          min-height: 170px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 1ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+          transition-duration: 1ms !important;
         }
       }
     </style>
   </head>
   <body>
     <header>
-      <div class="bar">
-        <div class="brand"><span class="mark">MB</span><span>Mundial Betting</span></div>
-        <p>FastAPI + Dixon-Coles</p>
+      <div class="shell bar">
+        <div class="brand" aria-label="Mundial Betting">
+          <span class="mark">MB</span>
+          <span>
+            <strong>Mundial Betting</strong>
+            <span>Dixon-Coles match desk</span>
+          </span>
+        </div>
+        <div class="status"><span class="status-dot"></span><span>Modelo activo</span></div>
       </div>
     </header>
 
-    <main>
-      <section class="stack">
-        <div>
-          <h1>Predicciones del Mundial</h1>
-          <p>Calcula probabilidades 1X2, goles, ambos anotan y edge contra cuotas sin vig.</p>
-        </div>
-
-        <form id="form" class="panel stack">
-          <div class="grid two">
-            <label>
-              Local
-              <select id="home"></select>
-            </label>
-            <label>
-              Visitante
-              <select id="away"></select>
-            </label>
-          </div>
-
-          <label class="inline">
-            <input id="neutral" type="checkbox" />
-            Sede neutral
-          </label>
-
-          <label>
-            Formato de cuota
-            <select id="oddsFormat">
-              <option value="american">Americano</option>
-              <option value="decimal">Decimal</option>
-            </select>
-          </label>
-
-          <div class="grid">
-            <label>Local<input id="oddHome" value="-120" /></label>
-            <label>Empate<input id="oddDraw" value="280" /></label>
-            <label>Visitante<input id="oddAway" value="350" /></label>
-          </div>
-
-          <div class="grid two">
-            <label>Over 2.5<input id="oddOver" value="-110" /></label>
-            <label>Under 2.5<input id="oddUnder" value="-110" /></label>
-          </div>
-
-          <div class="grid two">
-            <label>BTTS Si<input id="oddBttsYes" value="-105" /></label>
-            <label>BTTS No<input id="oddBttsNo" value="-115" /></label>
-          </div>
-
-          <button id="submit" type="submit">Calcular picks</button>
-          <p id="error" class="error"></p>
-        </form>
+    <main class="shell">
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">World Cup 2026</p>
+        <h1 id="page-title">Probabilidades limpias antes de tocar la cuota.</h1>
+        <p>
+          Selecciona el partido, pega las líneas de mercado y lee dónde el modelo ve valor real.
+        </p>
       </section>
 
-      <section id="result" class="panel stack">
-        <p>Elige un partido y calcula para ver resultados.</p>
-      </section>
+      <div class="workspace">
+        <aside class="panel control-panel">
+          <div class="panel-title">
+            <h2>Partido y mercado</h2>
+            <span class="chip">Sin vig</span>
+          </div>
+
+          <form id="form">
+            <div class="field-grid">
+              <label>
+                Local
+                <select id="home"></select>
+              </label>
+              <label>
+                Visitante
+                <select id="away"></select>
+              </label>
+            </div>
+
+            <label class="toggle-line">
+              <span>Sede neutral</span>
+              <input id="neutral" type="checkbox" />
+            </label>
+
+            <label>
+              Formato de cuota
+              <select id="oddsFormat">
+                <option value="american">Americano</option>
+                <option value="decimal">Decimal</option>
+              </select>
+            </label>
+
+            <div class="field-grid three">
+              <label>Local<input id="oddHome" value="-120" inputmode="decimal" /></label>
+              <label>Empate<input id="oddDraw" value="280" inputmode="decimal" /></label>
+              <label>Visitante<input id="oddAway" value="350" inputmode="decimal" /></label>
+            </div>
+
+            <div class="field-grid">
+              <label>Over 2.5<input id="oddOver" value="-110" inputmode="decimal" /></label>
+              <label>Under 2.5<input id="oddUnder" value="-110" inputmode="decimal" /></label>
+            </div>
+
+            <div class="field-grid">
+              <label>BTTS Si<input id="oddBttsYes" value="-105" inputmode="decimal" /></label>
+              <label>BTTS No<input id="oddBttsNo" value="-115" inputmode="decimal" /></label>
+            </div>
+
+            <button id="submit" class="primary" type="submit">Calcular picks</button>
+            <p id="error" class="error" role="alert"></p>
+          </form>
+        </aside>
+
+        <section id="result" class="panel result-panel">
+          <div class="result-hero">
+            <div class="empty-copy">
+              <p class="eyebrow">Match board</p>
+              <h2>El resultado aparecerá aquí con xG, edge y marcadores.</h2>
+              <p>El cálculo se actualizará con las cuotas que tengas en pantalla.</p>
+            </div>
+            <div class="pitch" aria-hidden="true">
+              <span class="midline"></span>
+              <span class="goal left"></span>
+              <span class="goal right"></span>
+              <span class="ball one"></span>
+              <span class="ball two"></span>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
 
     <script>
@@ -379,45 +898,88 @@
         return `${(value * 100).toFixed(1)}%`;
       }
 
+      function signedPct(value) {
+        return `${value >= 0 ? "+" : ""}${pct(value)}`;
+      }
+
       function edgeCell(edge) {
         if (!edge) return "<td>-</td><td>-</td>";
-        return `<td>${edge.edge >= 0 ? "+" : ""}${pct(edge.edge)}</td><td><span class="pick ${edge.pick}">${edge.pick}</span></td>`;
+        const edgeClass = edge.edge >= 0 ? "edge-pos" : "edge-neg";
+        return `<td class="${edgeClass}">${signedPct(edge.edge)}</td><td><span class="pick ${edge.pick}">${edge.pick}</span></td>`;
       }
 
       function marketRow(label, key, data) {
         return `<tr><td>${label}</td><td>${pct(data.markets[key])}</td>${edgeCell(data.edges?.[key])}</tr>`;
       }
 
+      function bestEdge(data) {
+        const edges = Object.entries(data.edges || {});
+        if (!edges.length) return null;
+        return edges.sort((a, b) => b[1].edge - a[1].edge)[0];
+      }
+
       function renderResult(data) {
         const scores = data.exact_scores
           .slice(0, 3)
           .map(
-            (score) =>
-              `<div class="score"><strong>${score.home_goals}-${score.away_goals}</strong><span>${pct(score.probability)}</span></div>`,
+            (score, index) =>
+              `<div class="score"><span>#${index + 1}</span><strong>${score.home_goals}-${score.away_goals}</strong><em>${pct(score.probability)}</em></div>`,
           )
           .join("");
+        const edge = bestEdge(data);
+        const edgeLabel = edge ? signedPct(edge[1].edge) : "-";
+        const edgePick = edge ? edge[1].pick : "-";
 
         $("result").innerHTML = `
-          <div class="result-head">
-            <div>
-              <h2>${teamLabel(data.home_team)} vs ${teamLabel(data.away_team)}</h2>
-              <p>xG del modelo</p>
+          <div class="fade-in">
+            <div class="result-hero">
+              <div class="hero-copy">
+                <div class="result-head">
+                  <p class="eyebrow">Lectura del modelo</p>
+                  <h2 class="match-line">${teamLabel(data.home_team)} vs ${teamLabel(data.away_team)}</h2>
+                  <p>Probabilidades calibradas con Dixon-Coles y comparación contra mercado sin vig.</p>
+                </div>
+                <div class="xg-row">
+                  <div>
+                    <div class="xg">${data.expected_goals.home.toFixed(2)} - ${data.expected_goals.away.toFixed(2)}</div>
+                    <div class="xg-label">Expected goals</div>
+                  </div>
+                </div>
+              </div>
+              <div class="pitch" aria-hidden="true">
+                <span class="midline"></span>
+                <span class="goal left"></span>
+                <span class="goal right"></span>
+                <span class="ball one"></span>
+                <span class="ball two"></span>
+              </div>
             </div>
-            <div class="xg">${data.expected_goals.home.toFixed(2)} - ${data.expected_goals.away.toFixed(2)}</div>
+
+            <div class="result-body">
+              <div class="summary-grid">
+                <div class="summary-item"><span>Local</span><strong>${pct(data.markets.home)}</strong></div>
+                <div class="summary-item"><span>Empate</span><strong>${pct(data.markets.draw)}</strong></div>
+                <div class="summary-item"><span>Mejor edge</span><strong>${edgeLabel} ${edgePick}</strong></div>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Mercado</th><th>Modelo</th><th>Edge</th><th>Pick</th></tr></thead>
+                  <tbody>
+                    ${marketRow("Local", "home", data)}
+                    ${marketRow("Empate", "draw", data)}
+                    ${marketRow("Visitante", "away", data)}
+                    ${marketRow("Over 2.5", "over_25", data)}
+                    ${marketRow("Under 2.5", "under_25", data)}
+                    ${marketRow("BTTS Si", "btts_yes", data)}
+                    ${marketRow("BTTS No", "btts_no", data)}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="scores">${scores}</div>
+            </div>
           </div>
-          <table>
-            <thead><tr><th>Mercado</th><th>Modelo</th><th>Edge</th><th>Pick</th></tr></thead>
-            <tbody>
-              ${marketRow("Local", "home", data)}
-              ${marketRow("Empate", "draw", data)}
-              ${marketRow("Visitante", "away", data)}
-              ${marketRow("Over 2.5", "over_25", data)}
-              ${marketRow("Under 2.5", "under_25", data)}
-              ${marketRow("BTTS Si", "btts_yes", data)}
-              ${marketRow("BTTS No", "btts_no", data)}
-            </tbody>
-          </table>
-          <div class="scores">${scores}</div>
         `;
       }
 
