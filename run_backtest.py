@@ -31,7 +31,6 @@ def run_historical_backtest():
     print(f"📦 Total de partidos disponibles para simulación: {len(all_matches)}")
 
     # 1. Definir Ventanas Temporales (Filtro optimizado a 5 años de entrenamiento)
-    # Evitamos procesar desde 2010 porque el peso por time-decay ya es insignificante
     train_set = [m for m in all_matches if "2018-01-01" <= m["date"] < "2023-01-01"]
     test_set = [m for m in all_matches if m["date"] >= "2023-01-01"]
 
@@ -51,10 +50,14 @@ def run_historical_backtest():
     for m in train_set:
         match_date_obj = datetime.strptime(m["date"], "%Y-%m-%d").date()
 
+        # CORRECCIÓN CRÍTICA: Normalizar desde el entrenamiento para que SciPy use llaves homogéneas
+        home_norm = normalize_team_name(m["home_team"])
+        away_norm = normalize_team_name(m["away_team"])
+
         formatted_train.append(
             SimpleNamespace(
-                home_team=m["home_team"],
-                away_team=m["away_team"],
+                home_team=home_norm,
+                away_team=away_norm,
                 home_score=m["home_score"],
                 away_score=m["away_score"],
                 home_goals=m["home_score"],
@@ -67,7 +70,6 @@ def run_historical_backtest():
             )
         )
 
-    # Agregamos tolerancia y limitamos iteraciones máximas para asegurar velocidad
     training_results = train_ratings(
         formatted_train, lambda_reg=0.4, half_life_days=730
     )
@@ -80,6 +82,7 @@ def run_historical_backtest():
 
     TEAMS.clear()
     TEAMS.update(training_results["teams"])
+    print(f"🔑 Equipos calibrados y cargados en memoria activa: {len(TEAMS)}")
 
     # 3. Ciclo de Evaluación (Backtesting)
     brier_scores = []
@@ -90,11 +93,9 @@ def run_historical_backtest():
     print("\n🚀 Ejecutando predicciones sobre el set de evaluación...")
 
     for match in test_set:
-        home = match["home_team"]
-        away = match["away_team"]
-
-        home_norm = normalize_team_name(home)
-        away_norm = normalize_team_name(away)
+        # CORRECCIÓN CRÍTICA: Ambos lados de la ecuación ahora usan strings limpios
+        home_norm = normalize_team_name(match["home_team"])
+        away_norm = normalize_team_name(match["away_team"])
 
         if home_norm not in TEAMS or away_norm not in TEAMS:
             continue
@@ -109,15 +110,21 @@ def run_historical_backtest():
             actual_outcome = "away"
 
         try:
+            # Pasamos directamente los nombres normalizados para evitar fallos internos en predict_match
             pred = predict_match(
-                home_team=home, away_team=away, neutral=match["neutral"], odds=None
+                home_team=home_norm,
+                away_team=away_norm,
+                neutral=match["neutral"],
+                odds=None,
             )
             probs = pred["probabilities"]
 
             p_home = probs["home"]
             p_draw = probs["draw"]
             p_away = probs["away"]
-        except Exception:
+        except Exception as e:
+            # Si algo falla de verdad, queremos saber qué es en lugar de ignorarlo
+            print(f"⚠️ Error prediciendo {home_norm} vs {away_norm}: {str(e)}")
             continue
 
         # --- Cálculo de Métricas Estadísticas ---
