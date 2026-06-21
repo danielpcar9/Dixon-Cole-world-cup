@@ -55,7 +55,10 @@ def predict(payload: PredictRequest) -> dict[str, object]:
 @app.post("/train")
 def train(payload: TrainRequest) -> dict[str, object]:
     try:
-        result = train_ratings(payload.matches)
+        result = train_ratings(
+            payload.matches,
+            lambda_reg=getattr(payload, "lambda_reg", 0.5),
+        )
         from mundial_betting.data import save_trained_ratings
         save_trained_ratings(result["teams"])
         set_trained_gamma(result["global_parameters"]["home_advantage_gamma"])

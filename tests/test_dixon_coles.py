@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mundial_betting.api import app
-from mundial_betting.data import TEAMS
+from mundial_betting.data import TEAMS, TeamRating
 from mundial_betting.dixon_coles import (
     expected_goals,
     market_probabilities,
@@ -154,6 +154,74 @@ def test_train_endpoint_persists_ratings() -> None:
             with open(TRAINED_RATINGS_PATH, "w", encoding="utf-8") as f:
                 f.write(old_file_content)
         load_trained_ratings()
+
+
+def test_training_and_prediction_share_same_model() -> None:
+    matches = [
+        MatchData(home_team="Mexico", away_team="Canada", home_goals=2, away_goals=1),
+        MatchData(home_team="Canada", away_team="Mexico", home_goals=1, away_goals=0),
+    ]
+    result = train_ratings(matches)
+    trained_gamma = result["global_parameters"]["home_advantage_gamma"]
+
+    alpha_mex = result["teams"]["Mexico"]["attack"]
+    beta_can = result["teams"]["Canada"]["defense"]
+    expected_lambda = alpha_mex * beta_can * trained_gamma
+
+    xg = expected_goals(
+        "Mexico",
+        "Canada",
+        gamma=trained_gamma,
+        teams={
+            "Mexico": TeamRating(attack=alpha_mex, defense=1.0, flag="MX"),
+            "Canada": TeamRating(attack=1.0, defense=beta_can, flag="CA"),
+        },
+    )
+    assert round(xg.home, 4) == round(expected_lambda, 4)
+
+
+def test_regularization_shrinks_extreme_ratings() -> None:
+    matches = [
+        MatchData(home_team="Mexico", away_team="Canada", home_goals=5, away_goals=0),
+        MatchData(home_team="Canada", away_team="Mexico", home_goals=0, away_goals=5),
+    ]
+
+    result_low_reg = train_ratings(matches, lambda_reg=0.01)
+    result_high_reg = train_ratings(matches, lambda_reg=2.0)
+
+    mex_attack_low = result_low_reg["teams"]["Mexico"]["attack"]
+    mex_attack_high = result_high_reg["teams"]["Mexico"]["attack"]
+
+    assert mex_attack_high < mex_attack_low
+    assert mex_attack_high > 1.0
+    assert abs(mex_attack_high - 1.0) < abs(mex_attack_low - 1.0)
+
+
+def test_regularization_does_not_prevent_learning_clear_signal() -> None:
+    matches = (
+        [MatchData(home_team="Mexico", away_team="Canada", home_goals=3, away_goals=0) for _ in range(20)]
+        + [MatchData(home_team="Canada", away_team="Mexico", home_goals=0, away_goals=3) for _ in range(20)]
+    )
+
+    result = train_ratings(matches, lambda_reg=1.0)
+
+    assert result["teams"]["Mexico"]["attack"] > result["teams"]["Canada"]["attack"]
+    assert result["teams"]["Mexico"]["defense"] < result["teams"]["Canada"]["defense"]
+
+
+def test_train_endpoint_accepts_lambda_reg() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/train",
+        json={
+            "matches": [
+                {"home_team": "Mexico", "away_team": "Canada", "home_goals": 2, "away_goals": 1},
+            ],
+            "lambda_reg": 1.5,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["global_parameters"]["lambda_reg"] == 1.5
 
 
 def test_train_ratings_with_weights() -> None:

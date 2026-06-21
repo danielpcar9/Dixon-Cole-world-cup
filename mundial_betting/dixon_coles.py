@@ -239,7 +239,12 @@ def predict_match(
     return response
 
 
-def negative_log_likelihood(params: np.ndarray, matches: list[MatchData], team_indices: dict[str, int]) -> float:
+def negative_log_likelihood(
+    params: np.ndarray,
+    matches: list[MatchData],
+    team_indices: dict[str, int],
+    lambda_reg: float = 0.5,
+) -> float:
     n_teams = len(team_indices)
     alpha = params[:n_teams]
     beta = params[n_teams : 2 * n_teams]
@@ -269,10 +274,14 @@ def negative_log_likelihood(params: np.ndarray, matches: list[MatchData], team_i
             + match.away_goals * log(mu)
         )
 
-    return float(-log_likelihood)
+    reg_term = lambda_reg * np.sum((alpha - 1.0) ** 2 + (beta - 1.0) ** 2)
+    return float(-log_likelihood + reg_term)
 
 
-def train_ratings(matches: list[MatchData]) -> dict[str, object]:
+def train_ratings(
+    matches: list[MatchData],
+    lambda_reg: float = 0.5,
+) -> dict[str, object]:
     teams = sorted(
         {
             normalize_team_name(match.home_team)
@@ -307,7 +316,7 @@ def train_ratings(matches: list[MatchData]) -> dict[str, object]:
     result = minimize(
         negative_log_likelihood,
         initial_params,
-        args=(matches, team_indices),
+        args=(matches, team_indices, lambda_reg),
         method="SLSQP",
         bounds=bounds,
         constraints=constraints,
@@ -334,6 +343,7 @@ def train_ratings(matches: list[MatchData]) -> dict[str, object]:
             "home_advantage_gamma": round(gamma, 4),
             "rho_correction": round(rho, 4),
             "negative_log_likelihood": round(float(result.fun), 4),
+            "lambda_reg": lambda_reg,
         },
         "teams": ratings,
     }

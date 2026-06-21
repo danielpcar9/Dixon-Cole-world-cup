@@ -43,6 +43,7 @@ class MatchData(BaseModel):
 
 class TrainRequest(BaseModel):
     matches: list[MatchData] = Field(min_length=1)
+    lambda_reg: float = Field(default=0.5, ge=0.0)
 
 
 class TeamResponse(BaseModel):
