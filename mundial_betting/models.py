@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -33,6 +34,7 @@ class MatchData(BaseModel):
     away_goals: int = Field(ge=0)
     is_neutral: bool = False
     weight: float = Field(default=1.0, gt=0)
+    match_date: date | None = None
 
     @model_validator(mode="after")
     def prevent_same_team(self) -> "MatchData":
@@ -44,6 +46,8 @@ class MatchData(BaseModel):
 class TrainRequest(BaseModel):
     matches: list[MatchData] = Field(min_length=1)
     lambda_reg: float = Field(default=0.5, ge=0.0)
+    half_life_days: float = Field(default=730.0, gt=0)
+    reference_date: date | None = None
 
 
 class TeamResponse(BaseModel):

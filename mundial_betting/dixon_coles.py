@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, datetime
 from math import exp, factorial, log
 
 import numpy as np
@@ -239,11 +240,30 @@ def predict_match(
     return response
 
 
+def time_weight(
+    match_date: date | None,
+    reference_date: date,
+    half_life_days: float,
+) -> float:
+    """
+    Peso exponencial decreciente. Un partido a half_life_days de distancia
+    pesa la mitad. Si no hay fecha, devuelve 1.0.
+    """
+    if match_date is None:
+        return 1.0
+    days_diff = (reference_date - match_date).days
+    if days_diff < 0:
+        return 1.0
+    return 0.5 ** (days_diff / half_life_days)
+
+
 def negative_log_likelihood(
     params: np.ndarray,
     matches: list[MatchData],
     team_indices: dict[str, int],
     lambda_reg: float = 0.5,
+    half_life_days: float = 730.0,
+    reference_date: date | None = None,
 ) -> float:
     n_teams = len(team_indices)
     alpha = params[:n_teams]
@@ -251,6 +271,8 @@ def negative_log_likelihood(
     gamma = params[2 * n_teams]
     rho = params[2 * n_teams + 1]
     log_likelihood = 0.0
+
+    ref_date = reference_date or date.today()
 
     for match in matches:
         home_idx = team_indices[normalize_team_name(match.home_team)]
@@ -266,7 +288,10 @@ def negative_log_likelihood(
         if correction <= 0:
             return 1e10
 
-        log_likelihood += match.weight * (
+        temporal_weight = time_weight(match.match_date, ref_date, half_life_days)
+        effective_weight = match.weight * temporal_weight
+
+        log_likelihood += effective_weight * (
             log(correction)
             - lmbda
             + match.home_goals * log(lmbda)
@@ -281,6 +306,8 @@ def negative_log_likelihood(
 def train_ratings(
     matches: list[MatchData],
     lambda_reg: float = 0.5,
+    half_life_days: float = 730.0,
+    reference_date: date | None = None,
 ) -> dict[str, object]:
     teams = sorted(
         {
@@ -316,7 +343,7 @@ def train_ratings(
     result = minimize(
         negative_log_likelihood,
         initial_params,
-        args=(matches, team_indices, lambda_reg),
+        args=(matches, team_indices, lambda_reg, half_life_days, reference_date),
         method="SLSQP",
         bounds=bounds,
         constraints=constraints,
@@ -344,6 +371,8 @@ def train_ratings(
             "rho_correction": round(rho, 4),
             "negative_log_likelihood": round(float(result.fun), 4),
             "lambda_reg": lambda_reg,
+            "half_life_days": half_life_days,
+            "reference_date": str(reference_date) if reference_date else str(date.today()),
         },
         "teams": ratings,
     }

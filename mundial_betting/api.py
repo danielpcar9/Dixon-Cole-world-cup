@@ -57,7 +57,9 @@ def train(payload: TrainRequest) -> dict[str, object]:
     try:
         result = train_ratings(
             payload.matches,
-            lambda_reg=getattr(payload, "lambda_reg", 0.5),
+            lambda_reg=payload.lambda_reg,
+            half_life_days=payload.half_life_days,
+            reference_date=payload.reference_date,
         )
         from mundial_betting.data import save_trained_ratings
         save_trained_ratings(result["teams"])

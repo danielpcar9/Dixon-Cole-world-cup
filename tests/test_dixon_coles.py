@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -10,6 +12,7 @@ from mundial_betting.dixon_coles import (
     score_matrix,
     set_trained_gamma,
     tau_correction,
+    time_weight,
     train_ratings,
 )
 from mundial_betting.models import MatchData
@@ -222,6 +225,79 @@ def test_train_endpoint_accepts_lambda_reg() -> None:
     )
     assert response.status_code == 200
     assert response.json()["global_parameters"]["lambda_reg"] == 1.5
+
+
+def test_time_weight_no_date_returns_one() -> None:
+    assert time_weight(None, date.today(), 730) == 1.0
+
+
+def test_time_weight_recent_match_high_weight() -> None:
+    recent = date.today() - timedelta(days=30)
+    weight = time_weight(recent, date.today(), 730)
+    assert weight > 0.9
+
+
+def test_time_weight_old_match_low_weight() -> None:
+    old = date.today() - timedelta(days=1460)
+    weight = time_weight(old, date.today(), 730)
+    assert weight == pytest.approx(0.25, rel=1e-3)
+
+
+def test_time_weight_future_match_no_penalty() -> None:
+    future = date.today() + timedelta(days=30)
+    weight = time_weight(future, date.today(), 730)
+    assert weight == 1.0
+
+
+def test_training_with_time_decay_changes_ratings() -> None:
+    today = date.today()
+    old_date = today - timedelta(days=2000)
+    recent_date = today - timedelta(days=30)
+
+    matches_no_decay = [
+        MatchData(home_team="Mexico", away_team="Canada", home_goals=5, away_goals=0, match_date=old_date),
+        MatchData(home_team="Canada", away_team="Mexico", home_goals=0, away_goals=1, match_date=recent_date),
+    ]
+    result_no_decay = train_ratings(matches_no_decay, half_life_days=99999)
+
+    matches_with_decay = [
+        MatchData(home_team="Mexico", away_team="Canada", home_goals=5, away_goals=0, match_date=old_date),
+        MatchData(home_team="Canada", away_team="Mexico", home_goals=0, away_goals=1, match_date=recent_date),
+    ]
+    result_with_decay = train_ratings(matches_with_decay, half_life_days=730)
+
+    mex_attack_no_decay = result_no_decay["teams"]["Mexico"]["attack"]
+    mex_attack_decay = result_with_decay["teams"]["Mexico"]["attack"]
+
+    assert mex_attack_decay < mex_attack_no_decay
+
+
+def test_train_endpoint_accepts_time_params() -> None:
+    client = TestClient(app)
+    today = date.today().isoformat()
+    old = (date.today() - timedelta(days=1000)).isoformat()
+
+    response = client.post(
+        "/train",
+        json={
+            "matches": [
+                {
+                    "home_team": "Mexico",
+                    "away_team": "Canada",
+                    "home_goals": 2,
+                    "away_goals": 1,
+                    "match_date": old,
+                },
+            ],
+            "lambda_reg": 0.5,
+            "half_life_days": 500,
+            "reference_date": today,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["global_parameters"]["half_life_days"] == 500.0
+    assert body["global_parameters"]["reference_date"] == today
 
 
 def test_train_ratings_with_weights() -> None:
