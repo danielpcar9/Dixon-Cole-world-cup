@@ -34,19 +34,69 @@
     .header-right .status { font-size:12px; color:var(--muted); }
 
     /* Pitch animation */
-    .pitch { position:relative; height:140px; background:linear-gradient(135deg, #1a4d1a 0%, #2d6a2d 50%, #1a4d1a 100%); border-radius:var(--radius); overflow:hidden; margin-bottom:24px; box-shadow:var(--shadow-lg); }
-    .pitch-lines { position:absolute; inset:0; }
-    .pitch-line { position:absolute; background:rgba(255,255,255,0.15); }
-    .pitch-line.center { width:2px; height:100%; left:50%; transform:translateX(-50%); }
-    .pitch-line.circle { width:80px; height:80px; border:2px solid rgba(255,255,255,0.15); border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%); }
-    .pitch-line.penalty-left { width:60px; height:40px; border:2px solid rgba(255,255,255,0.15); border-left:none; top:50%; left:0; transform:translateY(-50%); }
-    .pitch-line.penalty-right { width:60px; height:40px; border:2px solid rgba(255,255,255,0.15); border-right:none; top:50%; right:0; transform:translateY(-50%); }
-    .ball { position:absolute; width:16px; height:16px; background:#fff; border-radius:50%; box-shadow:0 2px 8px rgba(0,0,0,0.3); animation:ballMove 8s ease-in-out infinite; }
-    @keyframes ballMove {
-      0%,100% { left:10%; top:50%; }
-      25% { left:45%; top:30%; }
-      50% { left:90%; top:50%; }
-      75% { left:45%; top:70%; }
+    .pitch {
+      position: relative;
+      min-height: 200px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      border-radius: var(--radius);
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.08) 50%, transparent 50%),
+        linear-gradient(180deg, rgba(7, 94, 84, 0.92), rgba(21, 128, 61, 0.74));
+      background-size: 92px 100%, 100% 100%;
+      box-shadow: var(--shadow-lg);
+    }
+    .pitch::before,
+    .pitch::after {
+      content: "";
+      position: absolute;
+      border: 1px solid rgba(255, 255, 255, 0.58);
+    }
+    .pitch::before {
+      inset: 16px;
+      border-radius: 6px;
+    }
+    .pitch::after {
+      width: 72px;
+      height: 72px;
+      top: 50%;
+      left: 50%;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .midline {
+      position: absolute;
+      top: 16px;
+      bottom: 16px;
+      left: 50%;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.58);
+    }
+    .goal {
+      position: absolute;
+      top: 50%;
+      width: 34px;
+      height: 82px;
+      border: 1px solid rgba(255, 255, 255, 0.58);
+      transform: translateY(-50%);
+    }
+    .goal.left { left: 16px; border-left: 0; }
+    .goal.right { right: 16px; border-right: 0; }
+    .ball {
+      position: absolute;
+      width: 15px;
+      height: 15px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.26);
+      animation: drift 4.6s ease-in-out infinite;
+    }
+    .ball.one { top: 34%; left: 35%; }
+    .ball.two { top: 58%; left: 63%; opacity: 0.8; animation-delay: -1.3s; }
+    @keyframes drift {
+      0%,
+      100% { transform: translate(-2px, 0); }
+      50% { transform: translate(10px, -8px); }
     }
 
     /* Cards */
@@ -136,14 +186,12 @@
     </div>
 
     <!-- Pitch -->
-    <div class="pitch">
-      <div class="pitch-lines">
-        <div class="pitch-line center"></div>
-        <div class="pitch-line circle"></div>
-        <div class="pitch-line penalty-left"></div>
-        <div class="pitch-line penalty-right"></div>
-      </div>
-      <div class="ball"></div>
+    <div class="pitch" aria-hidden="true">
+      <span class="midline"></span>
+      <span class="goal left"></span>
+      <span class="goal right"></span>
+      <span class="ball one"></span>
+      <span class="ball two"></span>
     </div>
 
     <!-- Form -->
