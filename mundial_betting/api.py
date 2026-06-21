@@ -57,7 +57,7 @@ def teams() -> dict[str, TeamResponse]:
 @app.post("/predict")
 def predict(payload: PredictRequest) -> dict[str, object]:
     try:
-        return predict_match(
+        result = predict_match(
             payload.home_team,
             payload.away_team,
             neutral=payload.neutral,
@@ -65,6 +65,13 @@ def predict(payload: PredictRequest) -> dict[str, object]:
             odds_format=payload.odds_format,
             context=payload.context,
         )
+        from mundial_betting.data import get_ratings_metadata
+
+        if not get_ratings_metadata().get("trained_at"):
+            result["warning"] = (
+                "Usando ratings previos hardcodeados. Llama a /train con datos históricos para predicciones calibradas."
+            )
+        return result
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -79,13 +86,16 @@ def train(payload: TrainRequest) -> dict[str, object]:
             reference_date=payload.reference_date,
         )
         from mundial_betting.data import save_trained_ratings
+
         save_trained_ratings(result["teams"])
         set_trained_gamma(result["global_parameters"]["home_advantage_gamma"])
         return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=f"Optimization failed: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"Optimization failed: {exc}"
+        ) from exc
 
 
 @app.get("/context/{team_name}")

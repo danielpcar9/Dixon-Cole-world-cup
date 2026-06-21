@@ -50,7 +50,9 @@ def set_trained_gamma(gamma: float) -> None:
     _TRAINED_GAMMA = gamma
 
 
-def tau_correction(home_goals: int, away_goals: int, lmbda: float, mu: float, rho: float) -> float:
+def tau_correction(
+    home_goals: int, away_goals: int, lmbda: float, mu: float, rho: float
+) -> float:
     if home_goals == 0 and away_goals == 0:
         correction = 1 - lmbda * mu * rho
     elif home_goals == 0 and away_goals == 1:
@@ -121,10 +123,13 @@ def score_matrix(
         )
     if total < 0.95:
         import logging
+
         logging.warning(
             "Score matrix truncation: sum=%.4f for xG=(%.3f, %.3f). "
             "Increase MAX_GOALS if this occurs frequently.",
-            total, xg.home, xg.away,
+            total,
+            xg.home,
+            xg.away,
         )
     matrix /= total
     return matrix, xg
@@ -192,7 +197,9 @@ def apply_context_adjustments(
     return adjusted, adjustments
 
 
-def _score_matrix_from_xg(xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals: int = MAX_GOALS) -> np.ndarray:
+def _score_matrix_from_xg(
+    xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals: int = MAX_GOALS
+) -> np.ndarray:
     """Construye matriz de probabilidades a partir de expected goals ya ajustados."""
     matrix = np.zeros((max_goals + 1, max_goals + 1), dtype=float)
 
@@ -212,10 +219,13 @@ def _score_matrix_from_xg(xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals
         )
     if total < 0.95:
         import logging
+
         logging.warning(
             "Score matrix truncation: sum=%.4f for xG=(%.3f, %.3f). "
             "Increase MAX_GOALS if this occurs frequently.",
-            total, xg.home, xg.away,
+            total,
+            xg.home,
+            xg.away,
         )
     matrix /= total
     return matrix
@@ -247,9 +257,15 @@ def market_probabilities(matrix: np.ndarray) -> dict[str, float]:
     }
 
 
-def top_exact_scores(matrix: np.ndarray, limit: int = 10) -> list[dict[str, float | int]]:
+def top_exact_scores(
+    matrix: np.ndarray, limit: int = 10
+) -> list[dict[str, float | int]]:
     scores = [
-        {"home_goals": home, "away_goals": away, "probability": float(matrix[home, away])}
+        {
+            "home_goals": home,
+            "away_goals": away,
+            "probability": float(matrix[home, away]),
+        }
         for home in range(matrix.shape[0])
         for away in range(matrix.shape[1])
     ]
@@ -310,8 +326,8 @@ def edge_report(
             implied_probability(first_odds, odds_format),
             implied_probability(second_odds, odds_format),
         )
-        output[first]  = _edge_item(
-            model_probs[first],  first_prob,  _to_decimal_odds(first_odds,  odds_format)
+        output[first] = _edge_item(
+            model_probs[first], first_prob, _to_decimal_odds(first_odds, odds_format)
         )
         output[second] = _edge_item(
             model_probs[second], second_prob, _to_decimal_odds(second_odds, odds_format)
@@ -383,8 +399,12 @@ def predict_match(
                 "key_players_boost_applied": adjustments.key_players_boost_applied,
                 "clean_sheet_boost_applied": adjustments.clean_sheet_boost_applied,
             },
-            "h2h_home_win_rate": round(context.h2h_home_win_rate(), 4) if context.h2h_total > 0 else None,
-            "h2h_btts_rate": round(context.h2h_btts_rate(), 4) if context.h2h_total > 0 else None,
+            "h2h_home_win_rate": round(context.h2h_home_win_rate(), 4)
+            if context.h2h_total > 0
+            else None,
+            "h2h_btts_rate": round(context.h2h_btts_rate(), 4)
+            if context.h2h_total > 0
+            else None,
         }
         matrix = _score_matrix_from_xg(xg, rho=DEFAULT_RHO)
     else:
@@ -487,14 +507,8 @@ def train_ratings(
     reference_date: date | None = None,
 ) -> dict[str, object]:
     teams = sorted(
-        {
-            normalize_team_name(match.home_team)
-            for match in matches
-        }
-        | {
-            normalize_team_name(match.away_team)
-            for match in matches
-        }
+        {normalize_team_name(match.home_team) for match in matches}
+        | {normalize_team_name(match.away_team) for match in matches}
     )
     if len(teams) < 2:
         raise ValueError("At least two teams are required")
@@ -516,7 +530,10 @@ def train_ratings(
         + [(-0.25, 0.25)]
     )
 
-    constraints = {"type": "eq", "fun": lambda params: np.sum(params[:n_teams]) - n_teams}
+    constraints = {
+        "type": "eq",
+        "fun": lambda params: np.sum(params[:n_teams]) - n_teams,
+    }
     result = minimize(
         negative_log_likelihood,
         initial_params,
@@ -549,7 +566,77 @@ def train_ratings(
             "negative_log_likelihood": round(float(result.fun), 4),
             "lambda_reg": lambda_reg,
             "half_life_days": half_life_days,
-            "reference_date": str(reference_date) if reference_date else str(date.today()),
+            "reference_date": str(reference_date)
+            if reference_date
+            else str(date.today()),
         },
         "teams": ratings,
+    }
+
+
+def get_weighted_h2h(
+    h2h_record,
+    home_team: str,
+    away_team: str,
+    reference_date=None,
+    half_life_days: float = 730.0,
+):
+    """Calcula estadísticas H2H ponderadas por antigüedad usando time_weight."""
+    if not h2h_record or not hasattr(h2h_record, "matches") or not h2h_record.matches:
+        return {
+            "home_wins": 0.0,
+            "away_wins": 0.0,
+            "btts": 0.0,
+            "total_weight": 0.0,
+            "count": 0,
+        }
+
+    from datetime import date
+
+    ref_date = reference_date or date.today()
+
+    # Determinar quién es local hoy
+    try:
+        from mundial_betting.data import normalize_team_name
+
+        home_is_a = normalize_team_name(h2h_record.team_a) == normalize_team_name(
+            home_team
+        )
+    except:
+        home_is_a = str(h2h_record.team_a).lower() in str(home_team).lower()
+
+    home_wins = away_wins = btts = total_weight = 0.0
+    count = 0
+
+    for m in h2h_record.matches:
+        try:
+            m_date = (
+                date.fromisoformat(m["date"])
+                if isinstance(m["date"], str)
+                else m.get("date")
+            )
+            weight = time_weight(m_date, ref_date, half_life_days)
+        except Exception:
+            weight = 1.0
+
+        total_weight += weight
+        count += 1
+
+        g_home = int(m.get("goals_a" if home_is_a else "goals_b", 0))
+        g_away = int(m.get("goals_b" if home_is_a else "goals_a", 0))
+
+        if g_home > g_away:
+            home_wins += weight
+        elif g_away > g_home:
+            away_wins += weight
+
+        if int(m.get("goals_a", 0)) > 0 and int(m.get("goals_b", 0)) > 0:
+            btts += weight
+
+    return {
+        "home_wins": home_wins,
+        "away_wins": away_wins,
+        "btts": btts,
+        "total_weight": total_weight,
+        "count": count,
     }

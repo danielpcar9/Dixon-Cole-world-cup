@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Optional
+from datetime import date
 
 from mundial_betting.models import H2HRecord, MatchContext, TeamContext
 
-TEAM_CONTEXT_PATH = Path(__file__).resolve().parent.parent / "data" / "team_contexts.json"
+TEAM_CONTEXT_PATH = (
+    Path(__file__).resolve().parent.parent / "data" / "team_contexts.json"
+)
 H2H_PATH = Path(__file__).resolve().parent.parent / "data" / "h2h_records.json"
 
 _team_contexts: dict[str, TeamContext] = {}
@@ -114,7 +117,7 @@ def add_h2h_match(
     record.matches.append(
         {
             "date": match_date,
-            "home_team": team_a,   # who was actually the home side for this match
+            "home_team": team_a,  # who was actually the home side for this match
             "goals_a": goals_a,
             "goals_b": goals_b,
             "tournament": tournament,
@@ -135,32 +138,44 @@ def build_match_context(home_team: str, away_team: str) -> Optional[MatchContext
     if not home_ctx and not away_ctx and not h2h:
         return None
 
-    h2h_home_wins = 0
-    h2h_away_wins = 0
-    h2h_total = 0
-    h2h_btts_count = 0
+    h2h_home_wins: float = 0.0
+    h2h_away_wins: float = 0.0
+    h2h_total: float = 0.0
+    h2h_btts_count: float = 0.0
 
     if h2h:
+        from datetime import date as _date
         from mundial_betting.data import normalize_team_name
+        from mundial_betting.dixon_coles import time_weight
 
         # Determine whether today's home_team corresponds to team_a or team_b in the
         # stored H2HRecord. The key is sorted alphabetically so team_a may not be the
         # side that was 'home' in any individual match — we only care about which slot
         # maps to the team that is HOME today.
-        home_is_team_a = normalize_team_name(h2h.team_a) == normalize_team_name(home_team)
+        home_is_team_a = normalize_team_name(h2h.team_a) == normalize_team_name(
+            home_team
+        )
+        ref_date = _date.today()
 
         for match in h2h.matches:
-            h2h_total += 1
+            try:
+                match_date_val = _date.fromisoformat(match["date"])
+            except (KeyError, ValueError):
+                match_date_val = None
+
+            w = time_weight(match_date_val, ref_date, half_life_days=730.0)
+
+            h2h_total += w
             goals_home = match["goals_a"] if home_is_team_a else match["goals_b"]
             goals_away = match["goals_b"] if home_is_team_a else match["goals_a"]
 
             if goals_home > goals_away:
-                h2h_home_wins += 1
+                h2h_home_wins += w
             elif goals_away > goals_home:
-                h2h_away_wins += 1
+                h2h_away_wins += w
 
             if match["goals_a"] > 0 and match["goals_b"] > 0:
-                h2h_btts_count += 1
+                h2h_btts_count += w
 
     home_form = home_ctx.form if home_ctx else None
     away_form = away_ctx.form if away_ctx else None
@@ -177,7 +192,3 @@ def build_match_context(home_team: str, away_team: str) -> Optional[MatchContext
         home_key_players_available=home_ctx.availability_factor() if home_ctx else 1.0,
         away_key_players_available=away_ctx.availability_factor() if away_ctx else 1.0,
     )
-
-
-load_team_contexts()
-load_h2h_records()
