@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Contexto de Equipo — DC Scouting</title>
-  <meta name="description" content="Editor de contexto: forma reciente, jugadores clave e historial H2H para el modelo Dixon-Coles." />
+  <meta name="description"
+    content="Editor de contexto: forma reciente, jugadores clave e historial H2H para el modelo Dixon-Coles." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet" />
   <style>
     /* ===== DESIGN TOKENS ===== */
     :root {
@@ -17,28 +21,38 @@
       --navy-700: #0d2240;
       --navy-600: #123052;
       --navy-500: #1e4570;
-      --amber:    #F59E0B;
-      --amber-lt: #FCD34D;
-      --amber-dk: #B45309;
-      --amber-dim: rgba(245,158,11,0.12);
-      --amber-glow: rgba(245,158,11,0.06);
-      --cyan:     #22D3EE;
-      --green:    #10B981;
-      --red:      #F43F5E;
-      --text:     #E2E8F0;
+      --amber: #05e641;
+      --amber-lt: #5cfc4d;
+      --amber-dk: #0aa831;
+      --amber-dim: rgba(245, 158, 11, 0.12);
+      --amber-glow: rgba(245, 158, 11, 0.06);
+      --cyan: #22D3EE;
+      --green: #10B981;
+      --red: #F43F5E;
+      --text: #E2E8F0;
       --text-dim: #94A3B8;
       --text-muted: #475569;
-      --border:   rgba(255,255,255,0.06);
-      --border-lit: rgba(245,158,11,0.25);
-      --glass:    rgba(9,26,46,0.70);
-      --radius:   12px;
+      --border: rgba(255, 255, 255, 0.06);
+      --border-lit: rgba(245, 158, 11, 0.25);
+      --glass: rgba(9, 26, 46, 0.70);
+      --radius: 12px;
       --radius-lg: 16px;
-      --font-ui:   'Space Grotesk', system-ui, sans-serif;
+      --font-ui: 'Space Grotesk', system-ui, sans-serif;
       --font-data: 'Space Mono', 'Courier New', monospace;
     }
 
-    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-    html { scroll-behavior: smooth; }
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       font-family: var(--font-ui);
       background: var(--navy-950);
@@ -47,13 +61,14 @@
       min-height: 100vh;
       overflow-x: hidden;
     }
+
     body::before {
       content: '';
       position: fixed;
       inset: 0;
       background-image:
-        linear-gradient(rgba(245,158,11,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(245,158,11,0.03) 1px, transparent 1px);
+        linear-gradient(rgba(245, 158, 11, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245, 158, 11, 0.03) 1px, transparent 1px);
       background-size: 40px 40px;
       pointer-events: none;
       z-index: 0;
@@ -75,7 +90,13 @@
       margin-bottom: 36px;
       gap: 12px;
     }
-    .header-left { display: flex; flex-direction: column; gap: 2px; }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
     .page-sup {
       font-family: var(--font-data);
       font-size: 10px;
@@ -83,12 +104,14 @@
       color: var(--amber);
       text-transform: uppercase;
     }
+
     .page-title {
       font-size: 22px;
       font-weight: 700;
       color: var(--text);
       letter-spacing: -0.02em;
     }
+
     .back-link {
       display: inline-flex;
       align-items: center;
@@ -103,7 +126,12 @@
       background: var(--glass);
       transition: all 0.2s;
     }
-    .back-link:hover { color: var(--amber); border-color: var(--border-lit); background: var(--amber-dim); }
+
+    .back-link:hover {
+      color: var(--amber);
+      border-color: var(--border-lit);
+      background: var(--amber-dim);
+    }
 
     /* ── Card ── */
     .card {
@@ -116,16 +144,19 @@
       -webkit-backdrop-filter: blur(12px);
       transition: border-color 0.25s, box-shadow 0.25s;
     }
+
     .card:hover {
-      border-color: rgba(245,158,11,0.10);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+      border-color: rgba(245, 158, 11, 0.10);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
     }
+
     .card-header {
       display: flex;
       align-items: center;
       gap: 10px;
       margin-bottom: 20px;
     }
+
     .card-icon {
       width: 32px;
       height: 32px;
@@ -138,11 +169,24 @@
       font-size: 14px;
       flex-shrink: 0;
     }
-    .card-title { font-size: 13px; font-weight: 600; color: var(--text); }
-    .card-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .card-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
 
     /* ── Form ── */
-    .form-group { margin-bottom: 14px; }
+    .form-group {
+      margin-bottom: 14px;
+    }
+
     .form-label {
       display: block;
       font-family: var(--font-data);
@@ -153,6 +197,7 @@
       color: var(--text-muted);
       margin-bottom: 6px;
     }
+
     .form-control {
       width: 100%;
       padding: 10px 14px;
@@ -166,23 +211,44 @@
       appearance: none;
       -webkit-appearance: none;
     }
+
     .form-control:focus {
       outline: none;
       border-color: var(--amber);
-      box-shadow: 0 0 0 3px rgba(245,158,11,0.12);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
     }
-    .form-control option { background: var(--navy-800); color: var(--text); }
+
+    .form-control option {
+      background: var(--navy-800);
+      color: var(--text);
+    }
+
     select.form-control {
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394A3B8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 12px center;
       padding-right: 36px;
     }
-    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 560px) { .form-grid-2 { grid-template-columns: 1fr; } }
+
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 560px) {
+      .form-grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
 
     /* ── Result selector (W/D/L) ── */
-    .result-selector { display: flex; gap: 8px; margin-bottom: 12px; }
+    .result-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
     .result-btn {
       flex: 1;
       padding: 10px;
@@ -196,12 +262,38 @@
       cursor: pointer;
       transition: all 0.15s;
     }
-    .result-btn:hover { border-color: var(--amber); color: var(--amber); }
-    .result-btn.W { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: #34D399; }
-    .result-btn.D { background: var(--amber-dim); border-color: var(--border-lit); color: var(--amber); }
-    .result-btn.L { background: rgba(244,63,94,0.12); border-color: rgba(244,63,94,0.25); color: #FDA4AF; }
 
-    .results-strip { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; min-height: 28px; }
+    .result-btn:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .result-btn.W {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #34D399;
+    }
+
+    .result-btn.D {
+      background: var(--amber-dim);
+      border-color: var(--border-lit);
+      color: var(--amber);
+    }
+
+    .result-btn.L {
+      background: rgba(244, 63, 94, 0.12);
+      border-color: rgba(244, 63, 94, 0.25);
+      color: #FDA4AF;
+    }
+
+    .results-strip {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      min-height: 28px;
+    }
+
     .res-chip {
       display: inline-flex;
       align-items: center;
@@ -213,10 +305,28 @@
       cursor: pointer;
       transition: opacity 0.15s;
     }
-    .res-chip:hover { opacity: 0.7; }
-    .res-chip.W { background: rgba(16,185,129,0.2); color: #34D399; border: 1px solid rgba(16,185,129,0.3); }
-    .res-chip.D { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--border-lit); }
-    .res-chip.L { background: rgba(244,63,94,0.12); color: #FDA4AF; border: 1px solid rgba(244,63,94,0.2); }
+
+    .res-chip:hover {
+      opacity: 0.7;
+    }
+
+    .res-chip.W {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .res-chip.D {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border: 1px solid var(--border-lit);
+    }
+
+    .res-chip.L {
+      background: rgba(244, 63, 94, 0.12);
+      color: #FDA4AF;
+      border: 1px solid rgba(244, 63, 94, 0.2);
+    }
 
     /* ── Players table ── */
     .player-row {
@@ -226,11 +336,19 @@
       align-items: center;
       margin-bottom: 8px;
     }
+
     @media (max-width: 560px) {
-      .player-row { grid-template-columns: 1fr 90px 36px; }
-      .player-row .p-impact { display: none; }
+      .player-row {
+        grid-template-columns: 1fr 90px 36px;
+      }
+
+      .player-row .p-impact {
+        display: none;
+      }
     }
-    .player-row input, .player-row select {
+
+    .player-row input,
+    .player-row select {
       padding: 8px 10px;
       background: var(--navy-800);
       border: 1px solid var(--border);
@@ -240,16 +358,22 @@
       color: var(--text);
       width: 100%;
     }
-    .player-row input:focus, .player-row select:focus {
+
+    .player-row input:focus,
+    .player-row select:focus {
       outline: none;
       border-color: var(--amber);
     }
-    .player-row select option { background: var(--navy-800); }
+
+    .player-row select option {
+      background: var(--navy-800);
+    }
+
     .btn-icon {
       width: 36px;
       height: 36px;
-      border: 1px solid rgba(244,63,94,0.25);
-      background: rgba(244,63,94,0.10);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      background: rgba(244, 63, 94, 0.10);
       color: #FDA4AF;
       border-radius: 7px;
       cursor: pointer;
@@ -259,7 +383,10 @@
       justify-content: center;
       transition: background 0.15s;
     }
-    .btn-icon:hover { background: rgba(244,63,94,0.20); }
+
+    .btn-icon:hover {
+      background: rgba(244, 63, 94, 0.20);
+    }
 
     /* ── H2H list ── */
     .h2h-row {
@@ -270,8 +397,16 @@
       padding: 8px 0;
       border-bottom: 1px solid var(--border);
     }
-    .h2h-row:last-child { border-bottom: none; }
-    .h2h-row span { font-size: 13px; color: var(--text-dim); }
+
+    .h2h-row:last-child {
+      border-bottom: none;
+    }
+
+    .h2h-row span {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
     .h2h-row input {
       padding: 6px 8px;
       background: var(--navy-800);
@@ -283,6 +418,7 @@
       text-align: center;
       width: 100%;
     }
+
     .h2h-score-sep {
       font-family: var(--font-data);
       font-size: 14px;
@@ -307,11 +443,13 @@
       transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
       margin-top: 4px;
     }
+
     .btn-primary:hover {
       opacity: 0.92;
       transform: translateY(-1px);
-      box-shadow: 0 4px 20px rgba(245,158,11,0.35);
+      box-shadow: 0 4px 20px rgba(245, 158, 11, 0.35);
     }
+
     .btn-secondary {
       padding: 8px 14px;
       background: var(--navy-700);
@@ -324,7 +462,12 @@
       cursor: pointer;
       transition: all 0.15s;
     }
-    .btn-secondary:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+
+    .btn-secondary:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: var(--amber-dim);
+    }
 
     /* ── Notifications ── */
     .notif {
@@ -337,23 +480,40 @@
       gap: 8px;
       animation: fade-in 0.25s ease;
     }
-    @keyframes fade-in { from { opacity:0; transform:translateY(4px); } }
+
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+    }
+
     .notif.success {
-      background: rgba(16,185,129,0.12);
-      border: 1px solid rgba(16,185,129,0.25);
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.25);
       color: #34D399;
     }
+
     .notif.error {
-      background: rgba(244,63,94,0.10);
-      border: 1px solid rgba(244,63,94,0.25);
+      background: rgba(244, 63, 94, 0.10);
+      border: 1px solid rgba(244, 63, 94, 0.25);
       color: #FDA4AF;
     }
 
     /* ── Editor reveal ── */
-    #editor { transition: opacity 0.3s; }
-    #editor.hidden { opacity: 0; pointer-events: none; display: none !important; }
+    #editor {
+      transition: opacity 0.3s;
+    }
 
-    .hidden { display: none !important; }
+    #editor.hidden {
+      opacity: 0;
+      pointer-events: none;
+      display: none !important;
+    }
+
+    .hidden {
+      display: none !important;
+    }
 
     footer {
       text-align: center;
@@ -364,9 +524,14 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
-    footer a { color: var(--amber); text-decoration: none; }
+
+    footer a {
+      color: var(--amber);
+      text-decoration: none;
+    }
   </style>
 </head>
+
 <body>
   <div class="container">
 
@@ -539,10 +704,10 @@
           if (data.form) {
             currentResults = data.form.last_results || [];
             renderResults();
-            $('goalsFor').value    = data.form.goals_scored    || 0;
+            $('goalsFor').value = data.form.goals_scored || 0;
             $('goalsAgainst').value = data.form.goals_conceded || 0;
-            $('btts').value         = data.form.btts_count     || 0;
-            $('cleanSheets').value  = data.form.clean_sheets   || 0;
+            $('btts').value = data.form.btts_count || 0;
+            $('cleanSheets').value = data.form.clean_sheets || 0;
           }
           if (data.key_players) {
             data.key_players.forEach(p => addPlayer(p));
@@ -575,8 +740,8 @@
         <input type="text" placeholder="Nombre del jugador" value="${player.name}" class="p-name" />
         <select class="p-status">
           <option value="available" ${player.status === 'available' ? 'selected' : ''}>Disponible</option>
-          <option value="doubtful"  ${player.status === 'doubtful'  ? 'selected' : ''}>Dudoso</option>
-          <option value="injured"   ${player.status === 'injured'   ? 'selected' : ''}>Lesionado</option>
+          <option value="doubtful"  ${player.status === 'doubtful' ? 'selected' : ''}>Dudoso</option>
+          <option value="injured"   ${player.status === 'injured' ? 'selected' : ''}>Lesionado</option>
           <option value="suspended" ${player.status === 'suspended' ? 'selected' : ''}>Suspendido</option>
         </select>
         <input type="number" min="0" max="1" step="0.1" value="${player.impact}" class="p-impact" placeholder="Impact" />
@@ -588,7 +753,7 @@
     /* ── H2H ── */
     let currentH2H = [];
     function addH2H() {
-      const rival  = $('h2hRival').value;
+      const rival = $('h2hRival').value;
       const goalsA = parseInt($('h2hGoalsA').value) || 0;
       const goalsB = parseInt($('h2hGoalsB').value) || 0;
       if (!rival) return;
@@ -598,7 +763,7 @@
       }
       currentH2H.push({ rival, goalsA, goalsB });
       renderH2H();
-      $('h2hRival').value  = '';
+      $('h2hRival').value = '';
       $('h2hGoalsA').value = 0;
       $('h2hGoalsB').value = 0;
     }
@@ -635,11 +800,11 @@
       const payload = {
         team_name: team,
         form: {
-          last_results:   currentResults,
-          goals_scored:   parseInt($('goalsFor').value)    || 0,
+          last_results: currentResults,
+          goals_scored: parseInt($('goalsFor').value) || 0,
           goals_conceded: parseInt($('goalsAgainst').value) || 0,
-          btts_count:     parseInt($('btts').value)         || 0,
-          clean_sheets:   parseInt($('cleanSheets').value)  || 0,
+          btts_count: parseInt($('btts').value) || 0,
+          clean_sheets: parseInt($('cleanSheets').value) || 0,
         },
         key_players: players,
       };
@@ -666,11 +831,11 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              team_a:     team,
-              team_b:     h.rival,
-              goals_a:    parseInt(h.goalsA),
-              goals_b:    parseInt(h.goalsB),
-              date:       new Date().toISOString().split('T')[0],
+              team_a: team,
+              team_b: h.rival,
+              goals_a: parseInt(h.goalsA),
+              goals_b: parseInt(h.goalsB),
+              date: new Date().toISOString().split('T')[0],
             }),
           });
         } catch { /* silently fail individual H2H */ }
@@ -688,4 +853,5 @@
     loadTeams();
   </script>
 </body>
+
 </html>
