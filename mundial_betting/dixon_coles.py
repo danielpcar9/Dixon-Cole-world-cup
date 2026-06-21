@@ -91,9 +91,12 @@ def expected_goals(
 
     home_advantage = 1.0 if neutral else gamma
 
+    raw_home = home.attack * away.defense * home_advantage
+    raw_away = away.attack * home.defense
+
     return ExpectedGoals(
-        home=home.attack * away.defense * home_advantage,
-        away=away.attack * home.defense,
+        home=min(4.5, max(0.01, raw_home)),  # ← mismo rango que entrenamiento
+        away=min(4.5, max(0.01, raw_away)),  # ← mismo rango que entrenamiento
         home_attack_multiplier=home_advantage,
         home_defense_multiplier=1.0,
     )

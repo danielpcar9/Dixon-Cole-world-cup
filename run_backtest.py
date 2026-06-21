@@ -70,7 +70,7 @@ def run_historical_backtest():
         )
 
     training_results = train_ratings(
-        formatted_train, lambda_reg=0.4, half_life_days=730
+        formatted_train, lambda_reg=1.0, half_life_days=730
     )
     print("✅ Entrenamiento del bloque histórico completado con éxito.")
 
