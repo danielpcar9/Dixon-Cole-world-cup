@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from math import exp, factorial, log
 
 import numpy as np
 from scipy.optimize import minimize
 
 from mundial_betting.data import TEAMS, TeamRating, get_team, normalize_team_name
-from mundial_betting.models import MatchData, OddsFormat, OddsInput
+from mundial_betting.models import MatchContext, MatchData, OddsFormat, OddsInput
 
 MAX_GOALS = 10
 DEFAULT_RHO = -0.13
@@ -23,6 +23,17 @@ class ExpectedGoals:
     away: float
     home_attack_multiplier: float
     home_defense_multiplier: float
+
+
+@dataclass(frozen=True)
+class ContextAdjustments:
+    home_attack: float
+    away_attack: float
+    home_defense: float
+    away_defense: float
+    h2h_boost_applied: bool
+    btts_boost_applied: bool
+    key_players_boost_applied: bool
 
 
 def poisson_pmf(goals: int, expected_goals: float) -> float:
@@ -104,6 +115,75 @@ def score_matrix(
 
     matrix /= matrix.sum()
     return matrix, xg
+
+
+def apply_context_adjustments(
+    xg: ExpectedGoals,
+    ctx: MatchContext,
+) -> tuple[ExpectedGoals, ContextAdjustments]:
+    adj = {
+        "home_attack": 1.0,
+        "away_attack": 1.0,
+        "home_defense": 1.0,
+        "away_defense": 1.0,
+    }
+    flags = {
+        "h2h_boost_applied": False,
+        "btts_boost_applied": False,
+        "key_players_boost_applied": False,
+    }
+
+    if ctx.h2h_total >= 3:
+        h2h_home_wr = ctx.h2h_home_win_rate()
+        h2h_boost = (h2h_home_wr - 0.5) * 0.2
+        adj["home_attack"] *= 1.0 + h2h_boost
+        adj["away_attack"] *= 1.0 - h2h_boost
+        flags["h2h_boost_applied"] = True
+
+    if ctx.home_btts_streak >= 3 and ctx.away_btts_streak >= 3:
+        # BTTS streaks suggest weaker defensive setups, so increase the chance of both teams scoring.
+        adj["home_defense"] *= 0.85
+        adj["away_defense"] *= 0.85
+        flags["btts_boost_applied"] = True
+
+    if ctx.home_key_players_available < 1.0 or ctx.away_key_players_available < 1.0:
+        adj["home_attack"] *= ctx.home_key_players_available
+        adj["away_attack"] *= ctx.away_key_players_available
+        flags["key_players_boost_applied"] = True
+
+    adjusted = ExpectedGoals(
+        home=xg.home * adj["home_attack"] / adj["away_defense"],
+        away=xg.away * adj["away_attack"] / adj["home_defense"],
+        home_attack_multiplier=xg.home_attack_multiplier * adj["home_attack"],
+        home_defense_multiplier=xg.home_defense_multiplier * adj["home_defense"],
+    )
+
+    adjustments = ContextAdjustments(
+        home_attack=adj["home_attack"],
+        away_attack=adj["away_attack"],
+        home_defense=adj["home_defense"],
+        away_defense=adj["away_defense"],
+        **flags,
+    )
+
+    return adjusted, adjustments
+
+
+def _score_matrix_from_xg(xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals: int = MAX_GOALS) -> np.ndarray:
+    """Construye matriz de probabilidades a partir de expected goals ya ajustados."""
+    matrix = np.zeros((max_goals + 1, max_goals + 1), dtype=float)
+
+    for home_goals in range(max_goals + 1):
+        for away_goals in range(max_goals + 1):
+            correction = tau_correction(home_goals, away_goals, xg.home, xg.away, rho)
+            matrix[home_goals, away_goals] = (
+                correction
+                * poisson_pmf(home_goals, xg.home)
+                * poisson_pmf(away_goals, xg.away)
+            )
+
+    matrix /= matrix.sum()
+    return matrix
 
 
 def market_probabilities(matrix: np.ndarray) -> dict[str, float]:
@@ -211,17 +291,45 @@ def predict_match(
     gamma: float | None = None,
     odds: OddsInput | None = None,
     odds_format: OddsFormat = "american",
+    context: MatchContext | None = None,
 ) -> dict[str, object]:
     get_team(home_team)
     get_team(away_team)
 
     effective_gamma = gamma if gamma is not None else get_trained_gamma()
-    matrix, xg = score_matrix(
+    xg_base = expected_goals(
         home_team,
         away_team,
         neutral=neutral,
         gamma=effective_gamma,
     )
+
+    if context is not None:
+        xg, adjustments = apply_context_adjustments(xg_base, context)
+        context_meta = {
+            "adjustments": {
+                "home_attack_multiplier": round(adjustments.home_attack, 4),
+                "away_attack_multiplier": round(adjustments.away_attack, 4),
+                "home_defense_multiplier": round(adjustments.home_defense, 4),
+                "away_defense_multiplier": round(adjustments.away_defense, 4),
+                "h2h_boost_applied": adjustments.h2h_boost_applied,
+                "btts_boost_applied": adjustments.btts_boost_applied,
+                "key_players_boost_applied": adjustments.key_players_boost_applied,
+            },
+            "h2h_home_win_rate": round(context.h2h_home_win_rate(), 4) if context.h2h_total > 0 else None,
+            "h2h_btts_rate": round(context.h2h_btts_rate(), 4) if context.h2h_total > 0 else None,
+        }
+        matrix = _score_matrix_from_xg(xg, rho=DEFAULT_RHO)
+    else:
+        xg = xg_base
+        context_meta = None
+        matrix, _ = score_matrix(
+            home_team,
+            away_team,
+            neutral=neutral,
+            gamma=effective_gamma,
+        )
+
     markets = market_probabilities(matrix)
     response: dict[str, object] = {
         "home_team": normalize_team_name(home_team),
@@ -235,6 +343,8 @@ def predict_match(
         "markets": {key: round(value, 6) for key, value in markets.items()},
         "exact_scores": top_exact_scores(matrix),
     }
+    if context_meta is not None:
+        response["context"] = context_meta
     if odds:
         response["edges"] = edge_report(markets, odds, odds_format)
     return response

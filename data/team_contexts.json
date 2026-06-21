@@ -1,0 +1,26 @@
+{
+  "Mexico": {
+    "team_name": "Mexico",
+    "form": {
+      "last_results": [
+        "W",
+        "W",
+        "W"
+      ],
+      "goals_scored": 6,
+      "goals_conceded": 1,
+      "btts_count": 1,
+      "clean_sheets": 2,
+      "win_rate": 1.0,
+      "btts_rate": 0.3333333333333333
+    },
+    "key_players": [
+      {
+        "name": "Lozano",
+        "status": "available",
+        "impact": 1.0
+      }
+    ],
+    "last_updated": "2026-06-20"
+  }
+}

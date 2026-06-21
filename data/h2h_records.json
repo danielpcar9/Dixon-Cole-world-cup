@@ -1,0 +1,20 @@
+{
+  "Canada__vs__Mexico": {
+    "team_a": "Mexico",
+    "team_b": "Canada",
+    "matches": [
+      {
+        "date": "2024-06-01",
+        "goals_a": 2,
+        "goals_b": 1,
+        "tournament": "Amistoso"
+      },
+      {
+        "date": "2024-06-15",
+        "goals_a": 3,
+        "goals_b": 0,
+        "tournament": "Nations League"
+      }
+    ]
+  }
+}

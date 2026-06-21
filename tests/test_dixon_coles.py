@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from mundial_betting.api import app
 from mundial_betting.data import TEAMS, TeamRating
 from mundial_betting.dixon_coles import (
+    apply_context_adjustments,
     expected_goals,
     market_probabilities,
     predict_match,
@@ -15,7 +16,7 @@ from mundial_betting.dixon_coles import (
     time_weight,
     train_ratings,
 )
-from mundial_betting.models import MatchData
+from mundial_betting.models import MatchContext, MatchData
 
 
 def test_tau_correction_is_bounded_for_extreme_values() -> None:
@@ -319,5 +320,86 @@ def test_train_ratings_with_weights() -> None:
 
     # Ratings should differ because of the weights
     assert res_uniform["teams"] != res_weighted["teams"]
+
+
+def test_apply_context_adjustments_h2h_boost() -> None:
+    ctx = MatchContext(
+        h2h_home_wins=1,
+        h2h_away_wins=5,
+        h2h_total=6,
+        h2h_btts_count=0,
+    )
+    xg_base = expected_goals("Estados Unidos", "Mexico", gamma=1.0)
+    xg_adj, adj = apply_context_adjustments(xg_base, ctx)
+
+    assert adj.h2h_boost_applied is True
+    assert xg_adj.home < xg_base.home
+    assert xg_adj.away > xg_base.away
+
+
+def test_apply_context_adjustments_btts_boost() -> None:
+    ctx = MatchContext(
+        home_btts_streak=5,
+        away_btts_streak=4,
+    )
+    xg_base = expected_goals("Estados Unidos", "Mexico", gamma=1.0)
+    xg_adj, adj = apply_context_adjustments(xg_base, ctx)
+
+    assert adj.btts_boost_applied is True
+    assert xg_adj.home > xg_base.home
+    assert xg_adj.away > xg_base.away
+
+
+def test_apply_context_adjustments_key_players() -> None:
+    ctx = MatchContext(
+        home_key_players_available=0.7,
+        away_key_players_available=1.0,
+    )
+    xg_base = expected_goals("Estados Unidos", "Mexico", gamma=1.0)
+    xg_adj, adj = apply_context_adjustments(xg_base, ctx)
+
+    assert adj.key_players_boost_applied is True
+    assert xg_adj.home < xg_base.home
+    assert xg_adj.away == xg_base.away
+
+
+def test_predict_with_context_returns_adjustments() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/predict",
+        json={
+            "home_team": "Estados Unidos",
+            "away_team": "México",
+            "context": {
+                "h2h_home_wins": 1,
+                "h2h_away_wins": 5,
+                "h2h_total": 6,
+                "h2h_btts_count": 0,
+                "home_btts_streak": 5,
+                "away_key_players_available": 1.0,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "context" in body
+    assert body["context"]["adjustments"]["h2h_boost_applied"] is True
+    assert body["context"]["h2h_home_win_rate"] == pytest.approx(0.1667, rel=1e-3)
+
+
+def test_predict_without_context_no_context_field() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/predict",
+        json={
+            "home_team": "Estados Unidos",
+            "away_team": "México",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert "context" not in body
 
 
