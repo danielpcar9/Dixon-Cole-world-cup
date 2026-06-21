@@ -410,6 +410,8 @@ def predict_match(
             "home_defense_multiplier": xg.home_defense_multiplier,
         },
         "markets": {key: round(value, 6) for key, value in markets.items()},
+        # 🎯 DUPLICIDAD ESTRATÉGICA: Asegura compatibilidad con el bucle evaluador
+        "probabilities": {key: round(value, 6) for key, value in markets.items()},
         "exact_scores": top_exact_scores(matrix),
     }
     if context_meta is not None:
@@ -453,8 +455,13 @@ def negative_log_likelihood(
         home_idx = team_indices[normalize_team_name(match.home_team)]
         away_idx = team_indices[normalize_team_name(match.away_team)]
         home_advantage = 1.0 if match.is_neutral else gamma
-        lmbda = alpha[home_idx] * beta[away_idx] * home_advantage
-        mu = alpha[away_idx] * beta[home_idx]
+
+        # 🎯 PARCHE DE CALIBRACIÓN: Acotamos lmbda y mu para evitar sobreajuste en selecciones extremas
+        raw_lmbda = alpha[home_idx] * beta[away_idx] * home_advantage
+        raw_mu = alpha[away_idx] * beta[home_idx]
+
+        lmbda = min(4.5, max(0.01, raw_lmbda))
+        mu = min(4.5, max(0.01, raw_mu))
 
         if lmbda <= 0 or mu <= 0:
             return 1e10

@@ -50,7 +50,6 @@ def run_historical_backtest():
     for m in train_set:
         match_date_obj = datetime.strptime(m["date"], "%Y-%m-%d").date()
 
-        # CORRECCIÓN CRÍTICA: Normalizar desde el entrenamiento para que SciPy use llaves homogéneas
         home_norm = normalize_team_name(m["home_team"])
         away_norm = normalize_team_name(m["away_team"])
 
@@ -75,13 +74,19 @@ def run_historical_backtest():
     )
     print("✅ Entrenamiento del bloque histórico completado con éxito.")
 
-    # Inyectar parámetros en memoria para la sesión de evaluación actual
+    # Inyectar parámetros globales en memoria
     global_params = training_results.get("global_parameters", {})
     set_trained_gamma(global_params.get("home_advantage_gamma", 1.0))
     set_trained_rho(global_params.get("rho_correction", -0.13))
 
+    # CORRECCIÓN CRÍTICA: Convertir los dicts de los equipos a SimpleNamespace para que tengan el atributo .attack
     TEAMS.clear()
-    TEAMS.update(training_results["teams"])
+    for team_name, stats in training_results["teams"].items():
+        if isinstance(stats, dict):
+            TEAMS[team_name] = SimpleNamespace(**stats)
+        else:
+            TEAMS[team_name] = stats
+
     print(f"🔑 Equipos calibrados y cargados en memoria activa: {len(TEAMS)}")
 
     # 3. Ciclo de Evaluación (Backtesting)
@@ -93,7 +98,6 @@ def run_historical_backtest():
     print("\n🚀 Ejecutando predicciones sobre el set de evaluación...")
 
     for match in test_set:
-        # CORRECCIÓN CRÍTICA: Ambos lados de la ecuación ahora usan strings limpios
         home_norm = normalize_team_name(match["home_team"])
         away_norm = normalize_team_name(match["away_team"])
 
@@ -110,7 +114,6 @@ def run_historical_backtest():
             actual_outcome = "away"
 
         try:
-            # Pasamos directamente los nombres normalizados para evitar fallos internos en predict_match
             pred = predict_match(
                 home_team=home_norm,
                 away_team=away_norm,
@@ -123,8 +126,9 @@ def run_historical_backtest():
             p_draw = probs["draw"]
             p_away = probs["away"]
         except Exception as e:
-            # Si algo falla de verdad, queremos saber qué es en lugar de ignorarlo
-            print(f"⚠️ Error prediciendo {home_norm} vs {away_norm}: {str(e)}")
+            print(
+                f"⚠️ Error prediciendo {match['home_team']} vs {match['away_team']}: {str(e)}"
+            )
             continue
 
         # --- Cálculo de Métricas Estadísticas ---
