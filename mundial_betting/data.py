@@ -1,174 +1,67 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
+import os
 import json
-from pathlib import Path
+from pydantic import BaseModel
+
+MODEL_PATH = "data/trained_model.json"
 
 
-@dataclass(frozen=True)
-class TeamRating:
+# Modelo Pydantic para mantener consistencia de tipos
+class TeamRating(BaseModel):
     attack: float
     defense: float
-    flag: str
-    host: bool = False
 
 
-TEAMS: dict[str, TeamRating] = {
-    "Alemania": TeamRating(1.58, 0.80, "DE"),
-    "Arabia Saudita": TeamRating(1.02, 1.12, "SA"),
-    "Argelia": TeamRating(1.10, 1.08, "DZ"),
-    "Argentina": TeamRating(1.82, 0.65, "AR"),
-    "Australia": TeamRating(1.15, 1.04, "AU"),
-    "Austria": TeamRating(1.30, 0.94, "AT"),
-    "Bosnia y Herzegovina": TeamRating(1.08, 1.08, "BA"),
-    "Brasil": TeamRating(1.68, 0.74, "BR"),
-    "Belgica": TeamRating(1.52, 0.84, "BE"),
-    "Cabo Verde": TeamRating(0.88, 1.18, "CV"),
-    "Canada": TeamRating(1.22, 1.02, "CA", True),
-    "Colombia": TeamRating(1.55, 0.82, "CO"),
-    "Congo DR": TeamRating(0.92, 1.14, "CD"),
-    "Corea del Sur": TeamRating(1.20, 1.00, "KR"),
-    "Costa de Marfil": TeamRating(1.14, 1.04, "CI"),
-    "Croacia": TeamRating(1.42, 0.88, "HR"),
-    "Curacao": TeamRating(0.85, 1.22, "CW"),
-    "Ecuador": TeamRating(1.28, 0.96, "EC"),
-    "Egipto": TeamRating(1.06, 1.10, "EG"),
-    "Escocia": TeamRating(1.18, 1.02, "SCO"),
-    "Espana": TeamRating(1.80, 0.66, "ES"),
-    "Estados Unidos": TeamRating(1.28, 0.98, "US", True),
-    "Francia": TeamRating(1.78, 0.68, "FR"),
-    "Ghana": TeamRating(1.12, 1.06, "GH"),
-    "Haiti": TeamRating(0.88, 1.20, "HT"),
-    "Inglaterra": TeamRating(1.72, 0.72, "ENG"),
-    "Irak": TeamRating(0.90, 1.16, "IQ"),
-    "Iran": TeamRating(1.08, 1.08, "IR"),
-    "Japon": TeamRating(1.35, 0.92, "JP"),
-    "Jordania": TeamRating(0.90, 1.18, "JO"),
-    "Marruecos": TeamRating(1.30, 0.94, "MA"),
-    "Mexico": TeamRating(1.32, 0.95, "MX", True),
-    "Noruega": TeamRating(1.38, 0.90, "NO"),
-    "Nueva Zelanda": TeamRating(0.85, 1.22, "NZ"),
-    "Panama": TeamRating(0.95, 1.15, "PA"),
-    "Paraguay": TeamRating(1.12, 1.04, "PY"),
-    "Paises Bajos": TeamRating(1.56, 0.82, "NL"),
-    "Portugal": TeamRating(1.62, 0.78, "PT"),
-    "Qatar": TeamRating(0.98, 1.15, "QA"),
-    "Republica Checa": TeamRating(1.24, 0.98, "CZ"),
-    "Senegal": TeamRating(1.28, 0.95, "SN"),
-    "Sudafrica": TeamRating(1.00, 1.12, "ZA"),
-    "Suecia": TeamRating(1.22, 0.98, "SE"),
-    "Suiza": TeamRating(1.32, 0.93, "CH"),
-    "Tunez": TeamRating(1.05, 1.10, "TN"),
-    "Turquia": TeamRating(1.26, 0.96, "TR"),
-    "Uruguay": TeamRating(1.48, 0.86, "UY"),
-    "Uzbekistan": TeamRating(0.92, 1.16, "UZ"),
-}
-
-ALIASES = {
-    "Bélgica": "Belgica",
-    "Canadá": "Canada",
-    "Curaçao": "Curacao",
-    "España": "Espana",
-    "Haití": "Haiti",
-    "Irán": "Iran",
-    "Japón": "Japon",
-    "México": "Mexico",
-    "Panamá": "Panama",
-    "Países Bajos": "Paises Bajos",
-    "República Checa": "Republica Checa",
-    "Sudáfrica": "Sudafrica",
-    "Túnez": "Tunez",
-    "Turquía": "Turquia",
-    "Uzbekistán": "Uzbekistan",
-}
-
-DISPLAY_NAMES: dict[str, str] = {canonical: accented for accented, canonical in ALIASES.items()}
+# Estado global en memoria para los equipos
+TEAMS: dict[str, dict[str, float]] = {}
 
 
 def normalize_team_name(name: str) -> str:
-    cleaned = " ".join(name.strip().split())
-    return ALIASES.get(cleaned, cleaned)
+    """Normaliza espacios y mayúsculas en los nombres de equipos."""
+    return " ".join(name.strip().split()).title()
 
 
-def get_display_name(name: str) -> str:
-    normalized = normalize_team_name(name)
-    return DISPLAY_NAMES.get(normalized, normalized)
+def get_team(name: str) -> dict[str, float] | None:
+    """Obtiene el rating de un equipo usando su nombre normalizado."""
+    norm_name = normalize_team_name(name)
+    return TEAMS.get(norm_name)
 
 
-def get_team(name: str) -> TeamRating:
-    normalized = normalize_team_name(name)
+def save_trained_ratings(teams_dict: dict, gamma: float, rho: float) -> None:
+    """Guarda los ratings de los equipos, gamma y rho en un archivo JSON físico."""
+    global TEAMS
+    TEAMS = teams_dict  # Actualiza la memoria RAM de inmediato
+
+    # Asegurar que el directorio data/ exista
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+
+    payload = {
+        "global_parameters": {"home_advantage_gamma": gamma, "rho_correction": rho},
+        "teams": teams_dict,
+    }
+
+    with open(MODEL_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    print(f"💾 [Persistencia] Modelo guardado exitosamente en {MODEL_PATH}")
+
+
+def load_trained_model() -> dict:
+    """Carga el archivo JSON si existe para inicializar los parámetros del sistema."""
+    global TEAMS
+    if not os.path.exists(MODEL_PATH):
+        print(
+            "ℹ️ [Persistencia] No se encontró un modelo previo. Usando valores vacíos/por defecto."
+        )
+        return {}
+
     try:
-        return TEAMS[normalized]
-    except KeyError as exc:
-        raise KeyError(f"Unknown team: {name}") from exc
-
-
-TRAINED_RATINGS_PATH = Path(__file__).resolve().parent.parent / "data" / "trained_ratings.json"
-
-_RATINGS_METADATA: dict = {}
-
-
-def load_trained_ratings() -> None:
-    """Load trained ratings from disk. Supports both legacy flat-dict and new metadata-wrapped format."""
-    global _RATINGS_METADATA
-    if not TRAINED_RATINGS_PATH.exists():
-        return
-    try:
-        with open(TRAINED_RATINGS_PATH, "r", encoding="utf-8") as f:
+        with open(MODEL_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # New format: {"trained_at": ..., "gamma": ..., "teams": {...}}
-        # Legacy format: {"TeamName": {"attack": x, "defense": x}, ...}
-        if "teams" in data and isinstance(data["teams"], dict):
-            teams_data = data["teams"]
-            _RATINGS_METADATA = {
-                "trained_at": data.get("trained_at"),
-                "gamma": data.get("gamma"),
-            }
-        else:
-            teams_data = data
-            _RATINGS_METADATA = {}
-
-        for team_name, rating_data in teams_data.items():
-            norm_name = normalize_team_name(team_name)
-            existing = TEAMS.get(norm_name)
-            flag = existing.flag if existing else "UN"
-            host = existing.host if existing else False
-            TEAMS[norm_name] = TeamRating(
-                attack=float(rating_data["attack"]),
-                defense=float(rating_data["defense"]),
-                flag=flag,
-                host=host,
-            )
-    except Exception as exc:
-        print(f"Warning: Failed to load trained ratings from {TRAINED_RATINGS_PATH}: {exc}")
-
-
-def save_trained_ratings(
-    trained_teams: dict[str, dict[str, float]],
-    gamma: float | None = None,
-) -> None:
-    """Persist trained ratings with metadata (timestamp + gamma)."""
-    from datetime import date as _date
-    try:
-        TRAINED_RATINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        payload: dict = {
-            "trained_at": str(_date.today()),
-            "gamma": gamma,
-            "teams": trained_teams,
-        }
-        with open(TRAINED_RATINGS_PATH, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
-        load_trained_ratings()
-    except Exception as exc:
-        print(f"Error: Failed to save trained ratings: {exc}")
-        raise exc
-
-
-def get_ratings_metadata() -> dict:
-    """Return metadata about the currently loaded ratings (trained_at, gamma)."""
-    return _RATINGS_METADATA.copy()
-
-
-# Load saved ratings if they exist
-load_trained_ratings()
+        TEAMS = data.get("teams", {})
+        print(
+            f"🎯 [Persistencia] Modelo cargado con éxito. {len(TEAMS)} equipos listos."
+        )
+        return data
+    except Exception as e:
+        print(f"❌ [Persistencia] Error al cargar el modelo: {e}. Iniciando limpio.")
+        return {}

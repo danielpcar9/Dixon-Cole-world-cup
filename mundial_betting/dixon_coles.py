@@ -14,7 +14,9 @@ MAX_GOALS = 15
 DEFAULT_RHO = -0.13
 DEFAULT_GAMMA = 1.15
 
+# Estados globales para parámetros entrenados
 _TRAINED_GAMMA: float = DEFAULT_GAMMA
+_TRAINED_RHO: float = DEFAULT_RHO
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,15 @@ def get_trained_gamma() -> float:
 def set_trained_gamma(gamma: float) -> None:
     global _TRAINED_GAMMA
     _TRAINED_GAMMA = gamma
+
+
+def get_trained_rho() -> float:
+    return _TRAINED_RHO
+
+
+def set_trained_rho(rho: float) -> None:
+    global _TRAINED_RHO
+    _TRAINED_RHO = rho
 
 
 def tau_correction(
@@ -88,115 +99,6 @@ def expected_goals(
     )
 
 
-def score_matrix(
-    home_team: str,
-    away_team: str,
-    *,
-    neutral: bool = False,
-    rho: float = DEFAULT_RHO,
-    max_goals: int = MAX_GOALS,
-    gamma: float = DEFAULT_GAMMA,
-    teams: dict[str, TeamRating] | None = None,
-) -> tuple[np.ndarray, ExpectedGoals]:
-    xg = expected_goals(
-        home_team,
-        away_team,
-        neutral=neutral,
-        gamma=gamma,
-        teams=teams,
-    )
-    matrix = np.zeros((max_goals + 1, max_goals + 1), dtype=float)
-
-    for home_goals in range(max_goals + 1):
-        for away_goals in range(max_goals + 1):
-            correction = tau_correction(home_goals, away_goals, xg.home, xg.away, rho)
-            matrix[home_goals, away_goals] = (
-                correction
-                * poisson_pmf(home_goals, xg.home)
-                * poisson_pmf(away_goals, xg.away)
-            )
-
-    total = float(matrix.sum())
-    if total <= 0:
-        raise ValueError(
-            f"Score matrix has zero total probability for xG=({xg.home:.3f}, {xg.away:.3f})"
-        )
-    if total < 0.95:
-        import logging
-
-        logging.warning(
-            "Score matrix truncation: sum=%.4f for xG=(%.3f, %.3f). "
-            "Increase MAX_GOALS if this occurs frequently.",
-            total,
-            xg.home,
-            xg.away,
-        )
-    matrix /= total
-    return matrix, xg
-
-
-def apply_context_adjustments(
-    xg: ExpectedGoals,
-    ctx: MatchContext,
-) -> tuple[ExpectedGoals, ContextAdjustments]:
-    adj = {
-        "home_attack": 1.0,
-        "away_attack": 1.0,
-        "home_defense": 1.0,
-        "away_defense": 1.0,
-    }
-    flags = {
-        "h2h_boost_applied": False,
-        "btts_boost_applied": False,
-        "key_players_boost_applied": False,
-        "clean_sheet_boost_applied": False,
-    }
-
-    if ctx.h2h_total >= 3:
-        h2h_home_wr = ctx.h2h_home_win_rate()
-        h2h_boost = (h2h_home_wr - 0.5) * 0.2
-        adj["home_attack"] *= 1.0 + h2h_boost
-        adj["away_attack"] *= 1.0 - h2h_boost
-        flags["h2h_boost_applied"] = True
-
-    if ctx.home_btts_streak >= 3 and ctx.away_btts_streak >= 3:
-        # BTTS streaks suggest weaker defensive setups → increase xG for both.
-        adj["home_defense"] *= 0.85
-        adj["away_defense"] *= 0.85
-        flags["btts_boost_applied"] = True
-
-    # Clean-sheet streaks signal a solid defence → harder for the opponent to score.
-    # home_defense divides away xG (higher = fewer away goals); away_defense divides home xG.
-    if ctx.home_clean_sheets_last5 >= 3:
-        adj["home_defense"] *= 1.15
-        flags["clean_sheet_boost_applied"] = True
-    if ctx.away_clean_sheets_last5 >= 3:
-        adj["away_defense"] *= 1.15
-        flags["clean_sheet_boost_applied"] = True
-
-    if ctx.home_key_players_available < 1.0 or ctx.away_key_players_available < 1.0:
-        adj["home_attack"] *= ctx.home_key_players_available
-        adj["away_attack"] *= ctx.away_key_players_available
-        flags["key_players_boost_applied"] = True
-
-    adjusted = ExpectedGoals(
-        home=xg.home * adj["home_attack"] / adj["away_defense"],
-        away=xg.away * adj["away_attack"] / adj["home_defense"],
-        home_attack_multiplier=xg.home_attack_multiplier * adj["home_attack"],
-        home_defense_multiplier=xg.home_defense_multiplier * adj["home_defense"],
-    )
-
-    adjustments = ContextAdjustments(
-        home_attack=adj["home_attack"],
-        away_attack=adj["away_attack"],
-        home_defense=adj["home_defense"],
-        away_defense=adj["away_defense"],
-        **flags,
-    )
-
-    return adjusted, adjustments
-
-
 def _score_matrix_from_xg(
     xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals: int = MAX_GOALS
 ) -> np.ndarray:
@@ -231,29 +133,109 @@ def _score_matrix_from_xg(
     return matrix
 
 
+def score_matrix(
+    home_team: str,
+    away_team: str,
+    *,
+    neutral: bool = False,
+    rho: float | None = None,
+    max_goals: int = MAX_GOALS,
+    gamma: float = DEFAULT_GAMMA,
+    teams: dict[str, TeamRating] | None = None,
+) -> tuple[np.ndarray, ExpectedGoals]:
+    """Reutiliza la lógica unificada eliminando la duplicación de código."""
+    xg = expected_goals(
+        home_team,
+        away_team,
+        neutral=neutral,
+        gamma=gamma,
+        teams=teams,
+    )
+    target_rho = rho if rho is not None else get_trained_rho()
+    matrix = _score_matrix_from_xg(xg, rho=target_rho, max_goals=max_goals)
+    return matrix, xg
+
+
+def apply_context_adjustments(
+    xg: ExpectedGoals,
+    ctx: MatchContext,
+) -> tuple[ExpectedGoals, ContextAdjustments]:
+    adj = {
+        "home_attack": 1.0,
+        "away_attack": 1.0,
+        "home_defense": 1.0,
+        "away_defense": 1.0,
+    }
+    flags = {
+        "h2h_boost_applied": False,
+        "btts_boost_applied": False,
+        "key_players_boost_applied": False,
+        "clean_sheet_boost_applied": False,
+    }
+
+    if ctx.h2h_total >= 3:
+        h2h_home_wr = ctx.h2h_home_win_rate()
+        h2h_boost = (h2h_home_wr - 0.5) * 0.2
+        adj["home_attack"] *= 1.0 + h2h_boost
+        adj["away_attack"] *= 1.0 - h2h_boost
+        flags["h2h_boost_applied"] = True
+
+    if ctx.home_btts_streak >= 3 and ctx.away_btts_streak >= 3:
+        adj["home_defense"] *= 0.85
+        adj["away_defense"] *= 0.85
+        flags["btts_boost_applied"] = True
+
+    if ctx.home_clean_sheets_last5 >= 3:
+        adj["home_defense"] *= 1.15
+        flags["clean_sheet_boost_applied"] = True
+    if ctx.away_clean_sheets_last5 >= 3:
+        adj["away_defense"] *= 1.15
+        flags["clean_sheet_boost_applied"] = True
+
+    if ctx.home_key_players_available < 1.0 or ctx.away_key_players_available < 1.0:
+        adj["home_attack"] *= ctx.home_key_players_available
+        adj["away_attack"] *= ctx.away_key_players_available
+        flags["key_players_boost_applied"] = True
+
+    adjusted = ExpectedGoals(
+        home=xg.home * adj["home_attack"] / adj["away_defense"],
+        away=xg.away * adj["away_attack"] / adj["home_defense"],
+        home_attack_multiplier=xg.home_attack_multiplier * adj["home_attack"],
+        home_defense_multiplier=xg.home_defense_multiplier * adj["home_defense"],
+    )
+
+    adjustments = ContextAdjustments(
+        home_attack=adj["home_attack"],
+        away_attack=adj["away_attack"],
+        home_defense=adj["home_defense"],
+        away_defense=adj["away_defense"],
+        **flags,
+    )
+
+    return adjusted, adjustments
+
+
 def market_probabilities(matrix: np.ndarray) -> dict[str, float]:
+    """Cálculo de mercados optimizado y vectorizado al 100% con NumPy."""
     home_win = float(np.tril(matrix, -1).sum())
     draw = float(np.trace(matrix))
     away_win = float(np.triu(matrix, 1).sum())
 
-    over_25 = 0.0
-    btts_yes = 0.0
-    for home_goals in range(matrix.shape[0]):
-        for away_goals in range(matrix.shape[1]):
-            probability = matrix[home_goals, away_goals]
-            if home_goals + away_goals > 2.5:
-                over_25 += probability
-            if home_goals > 0 and away_goals > 0:
-                btts_yes += probability
+    # Generar rejilla de índices para vectorizar Over/Under 2.5
+    n_rows, n_cols = matrix.shape
+    r, c = np.indices((n_rows, n_cols))
+
+    over_25 = float(matrix[r + c > 2.5].sum())
+    btts_yes = float(matrix[1:, 1:].sum())  # Ambos marcan = Filas >= 1 y Columnas >= 1
 
     return {
         "home": home_win,
         "draw": draw,
         "away": away_win,
-        "over_25": float(over_25),
-        "under_25": float(1 - over_25),
-        "btts_yes": float(btts_yes),
-        "btts_no": float(1 - btts_yes),
+        "over_25": over_25,
+        "under_25": float(1.0 - over_25),
+        "btts_yes": btts_yes,
+        "btts_no": float(1.0 - btts_yes),
     }
 
 
@@ -290,10 +272,8 @@ def remove_vig(*probabilities: float) -> list[float]:
 
 
 def _to_decimal_odds(odds: float, odds_format: OddsFormat) -> float:
-    """Convert any odds format to decimal (European) odds."""
     if odds_format == "decimal":
         return odds
-    # American format
     if odds > 0:
         return odds / 100.0 + 1.0
     return 100.0 / abs(odds) + 1.0
@@ -341,7 +321,6 @@ def _edge_item(
     market_probability: float,
     decimal_odds: float | None = None,
 ) -> dict[str, float | str | None]:
-    """Compute edge and fractional Kelly for a single market."""
     edge = model_probability - market_probability
     if edge >= 0.04:
         pick = "BET"
@@ -354,7 +333,7 @@ def _edge_item(
     if decimal_odds is not None and decimal_odds > 1.0:
         b = decimal_odds - 1.0
         k = (b * model_probability - (1.0 - model_probability)) / b
-        kelly = round(max(0.0, k), 4)  # negative Kelly = don't bet
+        kelly = round(max(0.0, k), 4)
 
     return {
         "model_probability": round(model_probability, 6),
@@ -379,6 +358,8 @@ def predict_match(
     get_team(away_team)
 
     effective_gamma = gamma if gamma is not None else get_trained_gamma()
+    effective_rho = get_trained_rho()  # 🎯 SOLUCIÓN: Absorbe el Rho real calibrado
+
     xg_base = expected_goals(
         home_team,
         away_team,
@@ -406,7 +387,7 @@ def predict_match(
             if context.h2h_total > 0
             else None,
         }
-        matrix = _score_matrix_from_xg(xg, rho=DEFAULT_RHO)
+        matrix = _score_matrix_from_xg(xg, rho=effective_rho)
     else:
         xg = xg_base
         context_meta = None
@@ -414,6 +395,7 @@ def predict_match(
             home_team,
             away_team,
             neutral=neutral,
+            rho=effective_rho,
             gamma=effective_gamma,
         )
 
@@ -442,10 +424,6 @@ def time_weight(
     reference_date: date,
     half_life_days: float,
 ) -> float:
-    """
-    Peso exponencial decreciente. Un partido a half_life_days de distancia
-    pesa la mitad. Si no hay fecha, devuelve 1.0.
-    """
     if match_date is None:
         return 1.0
     days_diff = (reference_date - match_date).days
@@ -581,7 +559,7 @@ def get_weighted_h2h(
     reference_date=None,
     half_life_days: float = 730.0,
 ):
-    """Calcula estadísticas H2H ponderadas por antigüedad usando time_weight."""
+    """Calcula estadísticas H2H con control estricto de excepciones de tipado."""
     if not h2h_record or not hasattr(h2h_record, "matches") or not h2h_record.matches:
         return {
             "home_wins": 0.0,
@@ -591,18 +569,13 @@ def get_weighted_h2h(
             "count": 0,
         }
 
-    from datetime import date
-
     ref_date = reference_date or date.today()
 
-    # Determinar quién es local hoy
     try:
-        from mundial_betting.data import normalize_team_name
-
         home_is_a = normalize_team_name(h2h_record.team_a) == normalize_team_name(
             home_team
         )
-    except:
+    except Exception:
         home_is_a = str(h2h_record.team_a).lower() in str(home_team).lower()
 
     home_wins = away_wins = btts = total_weight = 0.0
