@@ -6,22 +6,38 @@ Pobla datos de forma, lesiones y H2H para pruebas del frontend.
 
 import json
 import sys
-
-import requests
+from typing import Any
+from urllib import error, request
 
 BASE_URL = "http://127.0.0.1:8000"
 
 
+def _request_json(method: str, url: str, payload: dict[str, Any] | None = None) -> tuple[int, dict[str, Any] | str]:
+    data = None
+    headers = {}
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    req = request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with request.urlopen(req, timeout=5) as response:
+            body = response.read().decode("utf-8")
+            return response.status, json.loads(body) if body else {}
+    except error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="ignore")
+        return exc.code, body
+    except error.URLError:
+        return 0, ""
+
+
 def check_server() -> bool:
     """Verifica que el servidor esté corriendo."""
-    try:
-        r = requests.get(f"{BASE_URL}/health", timeout=5)
-        return r.status_code == 200
-    except requests.exceptions.ConnectionError:
-        return False
+    status, _ = _request_json("GET", f"{BASE_URL}/health")
+    return status == 200
 
 
-def init_team_context(team_name: str, form_data: dict, players: list[dict]) -> bool:
+def init_team_context(team_name: str, form_data: dict[str, Any], players: list[dict[str, Any]]) -> bool:
     """Registra o actualiza el contexto de un equipo."""
     payload = {
         "team_name": team_name,
@@ -29,16 +45,23 @@ def init_team_context(team_name: str, form_data: dict, players: list[dict]) -> b
         "key_players": players,
     }
 
-    r = requests.post(f"{BASE_URL}/context/{team_name}", json=payload)
-    if r.status_code == 200:
+    status, body = _request_json("POST", f"{BASE_URL}/context/{team_name}", payload=payload)
+    if status == 200:
         print(f"  ✅ Contexto guardado: {team_name}")
     else:
-        print(f"  ❌ Error guardando {team_name}: {r.status_code} - {r.text}")
+        print(f"  ❌ Error guardando {team_name}: {status} - {body}")
         return False
     return True
 
 
-def init_h2h(team_a: str, team_b: str, goals_a: int, goals_b: int, match_date: str, tournament: str = "") -> bool:
+def init_h2h(
+    team_a: str,
+    team_b: str,
+    goals_a: int,
+    goals_b: int,
+    match_date: str,
+    tournament: str = "",
+) -> bool:
     """Registra un partido H2H."""
     payload = {
         "team_a": team_a,
@@ -49,11 +72,11 @@ def init_h2h(team_a: str, team_b: str, goals_a: int, goals_b: int, match_date: s
         "tournament": tournament,
     }
 
-    r = requests.post(f"{BASE_URL}/h2h", json=payload)
-    if r.status_code == 200:
+    status, body = _request_json("POST", f"{BASE_URL}/h2h", payload=payload)
+    if status == 200:
         print(f"  ✅ H2H: {team_a} {goals_a}-{goals_b} {team_b} ({match_date})")
     else:
-        print(f"  ❌ Error H2H {team_a} vs {team_b}: {r.status_code}")
+        print(f"  ❌ Error H2H {team_a} vs {team_b}: {status} - {body}")
         return False
     return True
 

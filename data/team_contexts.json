@@ -5,20 +5,145 @@
       "last_results": [
         "W",
         "W",
+        "D",
+        "L",
         "W"
       ],
-      "goals_scored": 6,
-      "goals_conceded": 1,
-      "btts_count": 1,
+      "goals_scored": 8,
+      "goals_conceded": 5,
+      "btts_count": 3,
       "clean_sheets": 2,
-      "win_rate": 1.0,
-      "btts_rate": 0.3333333333333333
+      "win_rate": 0.6,
+      "btts_rate": 0.6
     },
     "key_players": [
       {
-        "name": "Lozano",
+        "name": "Hirving Lozano",
         "status": "available",
         "impact": 1.0
+      },
+      {
+        "name": "Raul Jimenez",
+        "status": "available",
+        "impact": 0.8
+      },
+      {
+        "name": "Edson Alvarez",
+        "status": "suspended",
+        "impact": 0.7
+      }
+    ],
+    "last_updated": "2026-06-20"
+  },
+  "Japon": {
+    "team_name": "Japon",
+    "form": {
+      "last_results": [
+        "W",
+        "W",
+        "D",
+        "W",
+        "W"
+      ],
+      "goals_scored": 12,
+      "goals_conceded": 3,
+      "btts_count": 2,
+      "clean_sheets": 3,
+      "win_rate": 0.8,
+      "btts_rate": 0.4
+    },
+    "key_players": [
+      {
+        "name": "Koki Ogawa",
+        "status": "available",
+        "impact": 1.0
+      },
+      {
+        "name": "Kaoru Mitoma",
+        "status": "injured",
+        "impact": 0.9
+      },
+      {
+        "name": "Takefusa Kubo",
+        "status": "available",
+        "impact": 0.8
+      },
+      {
+        "name": "Wataru Endo",
+        "status": "available",
+        "impact": 0.7
+      }
+    ],
+    "last_updated": "2026-06-20"
+  },
+  "Tunez": {
+    "team_name": "Tunez",
+    "form": {
+      "last_results": [
+        "L",
+        "D",
+        "W",
+        "L",
+        "D"
+      ],
+      "goals_scored": 5,
+      "goals_conceded": 8,
+      "btts_count": 4,
+      "clean_sheets": 1,
+      "win_rate": 0.2,
+      "btts_rate": 0.8
+    },
+    "key_players": [
+      {
+        "name": "Elias Achouri",
+        "status": "available",
+        "impact": 0.7
+      },
+      {
+        "name": "Youssef Msakni",
+        "status": "doubtful",
+        "impact": 0.8
+      },
+      {
+        "name": "Aissa Laidouni",
+        "status": "available",
+        "impact": 0.6
+      }
+    ],
+    "last_updated": "2026-06-20"
+  },
+  "Canada": {
+    "team_name": "Canada",
+    "form": {
+      "last_results": [
+        "L",
+        "L",
+        "W",
+        "D",
+        "L"
+      ],
+      "goals_scored": 4,
+      "goals_conceded": 9,
+      "btts_count": 2,
+      "clean_sheets": 1,
+      "win_rate": 0.2,
+      "btts_rate": 0.4
+    },
+    "key_players": [
+      {
+        "name": "Jonathan David",
+        "status": "available",
+        "impact": 0.9
+      },
+      {
+        "name": "Alphonso Davies",
+        "status": "injured",
+        "impact": 1.0
+      },
+      {
+        "name": "Cyle Larin",
+        "status": "available",
+        "impact": 0.7
       }
     ],
     "last_updated": "2026-06-20"
