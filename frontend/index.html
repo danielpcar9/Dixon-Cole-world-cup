@@ -67,7 +67,11 @@
 
     /* Odds grid */
     .odds-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+    .odds-grid.four { grid-template-columns:repeat(4,1fr); }
     .odds-grid .form-group label { font-size:11px; }
+    @media (max-width:768px) {
+      .odds-grid.four { grid-template-columns:repeat(2,1fr); }
+    }
 
     /* Buttons */
     .btn-primary { width:100%; padding:12px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:background 0.2s; margin-top:8px; }
@@ -190,6 +194,24 @@
           <input id="oddAway" type="number" step="0.01" placeholder="Ej: +350" />
         </div>
       </div>
+      <div class="odds-grid four">
+        <div class="form-group">
+          <label>Over 2.5</label>
+          <input id="oddOver" type="number" step="0.01" placeholder="Ej: -110" />
+        </div>
+        <div class="form-group">
+          <label>Under 2.5</label>
+          <input id="oddUnder" type="number" step="0.01" placeholder="Ej: -110" />
+        </div>
+        <div class="form-group">
+          <label>BTTS Sí</label>
+          <input id="oddBttsYes" type="number" step="0.01" placeholder="Ej: -105" />
+        </div>
+        <div class="form-group">
+          <label>BTTS No</label>
+          <input id="oddBttsNo" type="number" step="0.01" placeholder="Ej: -115" />
+        </div>
+      </div>
     </div>
 
     <button class="btn-primary" id="submitBtn" onclick="predict()">Calcular picks</button>
@@ -305,12 +327,15 @@
 
     function getOdds() {
       const fmt = $('oddsFormat').value;
-      const conv = fmt === 'american' ? americanToProb : decimalToProb;
       const odds = {};
       const fields = [
         ['home', 'oddHome'],
         ['draw', 'oddDraw'],
         ['away', 'oddAway'],
+        ['over_25', 'oddOver'],
+        ['under_25', 'oddUnder'],
+        ['btts_yes', 'oddBttsYes'],
+        ['btts_no', 'oddBttsNo'],
       ];
       for (const [k, id] of fields) {
         const v = $(id).value;
@@ -373,10 +398,12 @@
       $('resAwayPct').textContent = (data.markets.away * 100).toFixed(1) + '%';
 
       // Odds implied
+      const fmt = $('oddsFormat').value;
+      const conv = fmt === 'american' ? americanToProb : decimalToProb;
       const { odds } = getOdds();
-      $('resHomeOdds').textContent = odds.home ? ('Implied: ' + (americanToProb(odds.home)*100).toFixed(1) + '%') : '';
-      $('resDrawOdds').textContent = odds.draw ? ('Implied: ' + (americanToProb(odds.draw)*100).toFixed(1) + '%') : '';
-      $('resAwayOdds').textContent = odds.away ? ('Implied: ' + (americanToProb(odds.away)*100).toFixed(1) + '%') : '';
+      $('resHomeOdds').textContent = odds.home ? ('Implied: ' + (conv(odds.home) * 100).toFixed(1) + '%') : '';
+      $('resDrawOdds').textContent = odds.draw ? ('Implied: ' + (conv(odds.draw) * 100).toFixed(1) + '%') : '';
+      $('resAwayOdds').textContent = odds.away ? ('Implied: ' + (conv(odds.away) * 100).toFixed(1) + '%') : '';
 
       // Edge
       const tbody = $('edgeBody');
