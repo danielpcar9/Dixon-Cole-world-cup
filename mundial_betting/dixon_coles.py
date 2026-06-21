@@ -11,6 +11,9 @@ from mundial_betting.models import MatchData, OddsFormat, OddsInput
 
 MAX_GOALS = 10
 DEFAULT_RHO = -0.13
+DEFAULT_GAMMA = 1.15
+
+_TRAINED_GAMMA: float = DEFAULT_GAMMA
 
 
 @dataclass(frozen=True)
@@ -23,6 +26,15 @@ class ExpectedGoals:
 
 def poisson_pmf(goals: int, expected_goals: float) -> float:
     return exp(-expected_goals) * expected_goals**goals / factorial(goals)
+
+
+def get_trained_gamma() -> float:
+    return _TRAINED_GAMMA
+
+
+def set_trained_gamma(gamma: float) -> None:
+    global _TRAINED_GAMMA
+    _TRAINED_GAMMA = gamma
 
 
 def tau_correction(home_goals: int, away_goals: int, lmbda: float, mu: float, rho: float) -> float:
@@ -44,33 +56,20 @@ def expected_goals(
     away_team: str,
     *,
     neutral: bool = False,
+    gamma: float = DEFAULT_GAMMA,
     teams: dict[str, TeamRating] | None = None,
 ) -> ExpectedGoals:
     ratings = teams or TEAMS
     home = ratings[normalize_team_name(home_team)]
     away = ratings[normalize_team_name(away_team)]
-    home_attack_multiplier = 1.0
-    home_defense_multiplier = 1.0
 
-    if not neutral:
-        if home.host and not away.host:
-            home_attack_multiplier = 1.25
-            home_defense_multiplier = 0.88
-        elif not home.host and away.host:
-            home_attack_multiplier = 0.92
-            home_defense_multiplier = 1.05
-        elif home.host and away.host:
-            home_attack_multiplier = 1.08
-            home_defense_multiplier = 0.96
-        else:
-            home_attack_multiplier = 1.08
-            home_defense_multiplier = 0.95
+    home_advantage = 1.0 if neutral else gamma
 
     return ExpectedGoals(
-        home=home.attack * away.defense * home_attack_multiplier,
-        away=away.attack * home.defense * home_defense_multiplier,
-        home_attack_multiplier=home_attack_multiplier,
-        home_defense_multiplier=home_defense_multiplier,
+        home=home.attack * away.defense * home_advantage,
+        away=away.attack * home.defense,
+        home_attack_multiplier=home_advantage,
+        home_defense_multiplier=1.0,
     )
 
 
@@ -81,9 +80,16 @@ def score_matrix(
     neutral: bool = False,
     rho: float = DEFAULT_RHO,
     max_goals: int = MAX_GOALS,
+    gamma: float = DEFAULT_GAMMA,
     teams: dict[str, TeamRating] | None = None,
 ) -> tuple[np.ndarray, ExpectedGoals]:
-    xg = expected_goals(home_team, away_team, neutral=neutral, teams=teams)
+    xg = expected_goals(
+        home_team,
+        away_team,
+        neutral=neutral,
+        gamma=gamma,
+        teams=teams,
+    )
     matrix = np.zeros((max_goals + 1, max_goals + 1), dtype=float)
 
     for home_goals in range(max_goals + 1):
@@ -201,12 +207,20 @@ def predict_match(
     away_team: str,
     *,
     neutral: bool = False,
+    gamma: float | None = None,
     odds: OddsInput | None = None,
     odds_format: OddsFormat = "american",
 ) -> dict[str, object]:
     get_team(home_team)
     get_team(away_team)
-    matrix, xg = score_matrix(home_team, away_team, neutral=neutral)
+
+    effective_gamma = gamma if gamma is not None else get_trained_gamma()
+    matrix, xg = score_matrix(
+        home_team,
+        away_team,
+        neutral=neutral,
+        gamma=effective_gamma,
+    )
     markets = market_probabilities(matrix)
     response: dict[str, object] = {
         "home_team": normalize_team_name(home_team),

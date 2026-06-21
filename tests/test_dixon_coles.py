@@ -1,7 +1,17 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from mundial_betting.api import app
-from mundial_betting.dixon_coles import market_probabilities, score_matrix, tau_correction, train_ratings
+from mundial_betting.data import TEAMS
+from mundial_betting.dixon_coles import (
+    expected_goals,
+    market_probabilities,
+    predict_match,
+    score_matrix,
+    set_trained_gamma,
+    tau_correction,
+    train_ratings,
+)
 from mundial_betting.models import MatchData
 
 
@@ -9,6 +19,46 @@ def test_tau_correction_is_bounded_for_extreme_values() -> None:
     correction = tau_correction(0, 0, 100.0, 100.0, -0.13)
 
     assert 0.01 <= correction <= 2.0
+
+
+def test_expected_goals_uses_gamma_parameter() -> None:
+    xg_low = expected_goals("Estados Unidos", "Mexico", gamma=1.05)
+    xg_high = expected_goals("Estados Unidos", "Mexico", gamma=1.50)
+
+    assert xg_high.home > xg_low.home
+    assert xg_high.home_attack_multiplier == 1.50
+    assert xg_low.home_attack_multiplier == 1.05
+    assert xg_high.home_defense_multiplier == 1.0
+
+
+def test_expected_goals_neutral_ignores_gamma() -> None:
+    xg = expected_goals("Estados Unidos", "Mexico", neutral=True, gamma=1.50)
+
+    assert xg.home_attack_multiplier == 1.0
+    assert xg.home == pytest.approx(
+        TEAMS["Estados Unidos"].attack * TEAMS["Mexico"].defense,
+        rel=1e-6,
+    )
+
+
+def test_predict_match_uses_trained_gamma_by_default() -> None:
+    matches = [
+        MatchData(
+            home_team="Mexico",
+            away_team="Canada",
+            home_goals=5,
+            away_goals=0,
+        ),
+    ]
+    result = train_ratings(matches)
+    trained_gamma = result["global_parameters"]["home_advantage_gamma"]
+    set_trained_gamma(trained_gamma)
+
+    pred = predict_match("Mexico", "Canada")
+    assert pred["expected_goals"]["home_attack_multiplier"] == pytest.approx(
+        trained_gamma,
+        rel=1e-4,
+    )
 
 
 def test_score_matrix_is_normalized() -> None:

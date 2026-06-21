@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from mundial_betting.data import TEAMS, get_display_name
-from mundial_betting.dixon_coles import predict_match, train_ratings
+from mundial_betting.dixon_coles import predict_match, set_trained_gamma, train_ratings
 from mundial_betting.models import PredictRequest, TeamResponse, TrainRequest
 
 app = FastAPI(title="Mundial Betting API", version="0.1.0")
@@ -58,6 +58,7 @@ def train(payload: TrainRequest) -> dict[str, object]:
         result = train_ratings(payload.matches)
         from mundial_betting.data import save_trained_ratings
         save_trained_ratings(result["teams"])
+        set_trained_gamma(result["global_parameters"]["home_advantage_gamma"])
         return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
