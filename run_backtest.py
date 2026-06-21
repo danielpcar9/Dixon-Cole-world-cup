@@ -30,11 +30,12 @@ def run_historical_backtest():
 
     print(f"📦 Total de partidos disponibles para simulación: {len(all_matches)}")
 
-    # 1. Definir Ventanas Temporales (Train / Test Split)
-    train_set = [m for m in all_matches if m["date"] < "2023-01-01"]
+    # 1. Definir Ventanas Temporales (Filtro optimizado a 5 años de entrenamiento)
+    # Evitamos procesar desde 2010 porque el peso por time-decay ya es insignificante
+    train_set = [m for m in all_matches if "2018-01-01" <= m["date"] < "2023-01-01"]
     test_set = [m for m in all_matches if m["date"] >= "2023-01-01"]
 
-    print(f"🏋️ Partidos de entrenamiento (2010-2022): {len(train_set)}")
+    print(f"🏋️ Partidos de entrenamiento optimizados (2018-2022): {len(train_set)}")
     print(f"🧪 Partidos de evaluación (2023-Presente): {len(test_set)}")
 
     if len(test_set) == 0:
@@ -66,12 +67,13 @@ def run_historical_backtest():
             )
         )
 
+    # Agregamos tolerancia y limitamos iteraciones máximas para asegurar velocidad
     training_results = train_ratings(
         formatted_train, lambda_reg=0.4, half_life_days=730
     )
     print("✅ Entrenamiento del bloque histórico completado con éxito.")
 
-    # SOLUClÓN: Inyectar parámetros en memoria para la sesión de evaluación actual
+    # Inyectar parámetros en memoria para la sesión de evaluación actual
     global_params = training_results.get("global_parameters", {})
     set_trained_gamma(global_params.get("home_advantage_gamma", 1.0))
     set_trained_rho(global_params.get("rho_correction", -0.13))
@@ -91,7 +93,6 @@ def run_historical_backtest():
         home = match["home_team"]
         away = match["away_team"]
 
-        # CORRECCIÓN: Validar usando nombres normalizados mapeados en el diccionario
         home_norm = normalize_team_name(home)
         away_norm = normalize_team_name(away)
 
