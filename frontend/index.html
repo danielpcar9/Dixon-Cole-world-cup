@@ -1,396 +1,435 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mundial Betting</title>
+  <link rel="icon" href="https://raw.githubusercontent.com/danielpcar9/Dixon-Cole-world-cup/main/frontend/favicon.png" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
-      line-height: 1.6;
-      padding: 20px;
+    :root {
+      --accent: #175cff;
+      --accent-dark: #0a3f9e;
+      --bg: #f7f8fa;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.06);
+      --shadow-lg: 0 6px 24px rgba(0,0,0,0.08);
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
-    .container { max-width: 800px; margin: 0 auto; }
-    h1 {
-      text-align: center;
-      color: #38bdf8;
-      margin-bottom: 8px;
-      font-size: 2rem;
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:var(--font); background:var(--bg); color:var(--text); line-height:1.5; }
+    .container { max-width:900px; margin:0 auto; padding:24px; }
+
+    /* Header */
+    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+    .header-left { display:flex; align-items:center; gap:12px; }
+    .header-left h1 { font-size:22px; font-weight:700; color:var(--text); }
+    .header-left p { font-size:12px; color:var(--muted); margin-top:2px; }
+    .header-right { display:flex; align-items:center; gap:8px; }
+    .header-right .badge { background:var(--accent); color:#fff; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:600; }
+    .header-right .status { font-size:12px; color:var(--muted); }
+
+    /* Pitch animation */
+    .pitch { position:relative; height:140px; background:linear-gradient(135deg, #1a4d1a 0%, #2d6a2d 50%, #1a4d1a 100%); border-radius:var(--radius); overflow:hidden; margin-bottom:24px; box-shadow:var(--shadow-lg); }
+    .pitch-lines { position:absolute; inset:0; }
+    .pitch-line { position:absolute; background:rgba(255,255,255,0.15); }
+    .pitch-line.center { width:2px; height:100%; left:50%; transform:translateX(-50%); }
+    .pitch-line.circle { width:80px; height:80px; border:2px solid rgba(255,255,255,0.15); border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%); }
+    .pitch-line.penalty-left { width:60px; height:40px; border:2px solid rgba(255,255,255,0.15); border-left:none; top:50%; left:0; transform:translateY(-50%); }
+    .pitch-line.penalty-right { width:60px; height:40px; border:2px solid rgba(255,255,255,0.15); border-right:none; top:50%; right:0; transform:translateY(-50%); }
+    .ball { position:absolute; width:16px; height:16px; background:#fff; border-radius:50%; box-shadow:0 2px 8px rgba(0,0,0,0.3); animation:ballMove 8s ease-in-out infinite; }
+    @keyframes ballMove {
+      0%,100% { left:10%; top:50%; }
+      25% { left:45%; top:30%; }
+      50% { left:90%; top:50%; }
+      75% { left:45%; top:70%; }
     }
-    .subtitle {
-      text-align: center;
-      color: #94a3b8;
-      margin-bottom: 32px;
-      font-size: 0.9rem;
-    }
-    
-    .card {
-      background: #1e293b;
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 20px;
-      border: 1px solid #334155;
-    }
-    .card h2 {
-      color: #38bdf8;
-      font-size: 1.1rem;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 16px;
-    }
-    @media (max-width: 600px) {
-      .form-row { grid-template-columns: 1fr; }
-    }
-    
-    label {
-      display: block;
-      color: #94a3b8;
-      font-size: 0.85rem;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    select, input {
-      width: 100%;
-      padding: 10px 14px;
-      background: #0f172a;
-      border: 1px solid #475569;
-      border-radius: 8px;
-      color: #e2e8f0;
-      font-size: 1rem;
-    }
-    select:focus, input:focus {
-      outline: none;
-      border-color: #38bdf8;
-    }
-    
-    button {
-      width: 100%;
-      padding: 14px;
-      background: #38bdf8;
-      color: #0f172a;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    button:hover { background: #7dd3fc; }
-    button:disabled {
-      background: #475569;
-      cursor: not-allowed;
-    }
-    
-    .result-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin: 20px 0;
-    }
-    .result-cell {
-      background: #0f172a;
-      padding: 16px;
-      border-radius: 8px;
-      text-align: center;
-    }
-    .result-cell .label {
-      color: #94a3b8;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-    }
-    .result-cell .value {
-      color: #38bdf8;
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
-    .result-cell .pct {
-      color: #e2e8f0;
-      font-size: 1.1rem;
-    }
-    
-    .xg-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid #334155;
-    }
-    .xg-row:last-child { border-bottom: none; }
-    .xg-team { font-weight: 600; }
-    .xg-value { color: #38bdf8; font-size: 1.2rem; }
-    
-    .context-section {
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px solid #334155;
-    }
-    .context-section h3 {
-      color: #94a3b8;
-      font-size: 0.9rem;
-      margin-bottom: 12px;
-    }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      margin: 4px;
-    }
-    .badge.active {
-      background: #065f46;
-      color: #6ee7b7;
-    }
-    .badge.inactive {
-      background: #374151;
-      color: #9ca3af;
-    }
-    .badge::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-    }
-    .badge.active::before { background: #6ee7b7; }
-    .badge.inactive::before { background: #6b7280; }
-    
-    .h2h-stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .h2h-stat {
-      background: #0f172a;
-      padding: 10px;
-      border-radius: 6px;
-      text-align: center;
-    }
-    .h2h-stat .num { color: #38bdf8; font-weight: 700; }
-    .h2h-stat .lbl { color: #94a3b8; font-size: 0.75rem; }
-    
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: #94a3b8;
-    }
-    .error {
-      background: #7f1d1d;
-      color: #fecaca;
-      padding: 16px;
-      border-radius: 8px;
-      margin-top: 16px;
-    }
-    
-    .hidden { display: none; }
+
+    /* Cards */
+    .card { background:var(--card); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:var(--shadow); border:1px solid var(--border); }
+    .card-title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .card-title i { color:var(--accent); font-size:16px; }
+
+    /* Form */
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:640px) { .form-grid { grid-template-columns:1fr; } }
+    .form-group { display:flex; flex-direction:column; gap:4px; }
+    .form-group label { font-size:12px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+    .form-group select, .form-group input { padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; background:#fff; color:var(--text); transition:border-color 0.2s; }
+    .form-group select:focus, .form-group input:focus { outline:none; border-color:var(--accent); }
+    .toggle-line { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#f8fafc; border-radius:8px; margin-top:8px; cursor:pointer; }
+    .toggle-line span { font-size:13px; color:var(--text); }
+    .toggle-line input[type="checkbox"] { width:18px; height:18px; accent-color:var(--accent); cursor:pointer; }
+
+    /* Odds grid */
+    .odds-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+    .odds-grid .form-group label { font-size:11px; }
+
+    /* Buttons */
+    .btn-primary { width:100%; padding:12px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:background 0.2s; margin-top:8px; }
+    .btn-primary:hover { background:var(--accent-dark); }
+    .btn-primary:disabled { background:#94a3b8; cursor:not-allowed; }
+
+    /* Results */
+    .result-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:16px 0; }
+    .result-cell { background:#f8fafc; padding:14px; border-radius:8px; text-align:center; border:1px solid var(--border); }
+    .result-cell .label { font-size:11px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+    .result-cell .value { font-size:20px; font-weight:700; color:var(--accent); }
+    .result-cell .sub { font-size:12px; color:var(--muted); margin-top:2px; }
+
+    .xg-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+    .xg-row:last-child { border-bottom:none; }
+    .xg-team { font-weight:600; }
+    .xg-value { color:var(--accent); font-weight:700; }
+
+    /* Edge table */
+    .edge-table { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
+    .edge-table th { text-align:left; padding:8px; color:var(--muted); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--border); }
+    .edge-table td { padding:10px 8px; border-bottom:1px solid var(--border); }
+    .pick { display:inline-block; padding:4px 10px; border-radius:4px; font-weight:700; font-size:11px; text-transform:uppercase; }
+    .pick.bet { background:#dcfce7; color:#15803d; }
+    .pick.skip { background:#fef3c7; color:#b45309; }
+    .pick.fade { background:#fee2e2; color:#b91c1c; }
+    .edge-pos { color:#15803d; font-weight:600; }
+    .edge-neg { color:#b91c1c; font-weight:600; }
+
+    /* Context section */
+    .context-section { margin-top:16px; padding:16px; background:#f8fafc; border-radius:8px; border:1px solid var(--border); }
+    .context-section h3 { font-size:12px; color:var(--muted); text-transform:uppercase; margin-bottom:10px; }
+    .context-badges { display:flex; gap:6px; flex-wrap:wrap; }
+    .ctx-badge { padding:4px 10px; border-radius:12px; font-size:11px; font-weight:700; }
+    .ctx-badge.on { background:#dcfce7; color:#087f5b; }
+    .ctx-badge.off { background:#f1f5f9; color:#94a3b8; }
+    .h2h-mini { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+    .h2h-mini > div { text-align:center; padding:8px; background:#fff; border-radius:6px; }
+    .h2h-mini .num { font-size:16px; font-weight:700; color:var(--accent); }
+    .h2h-mini .lbl { font-size:10px; color:var(--muted); }
+
+    .loading { text-align:center; padding:30px; color:var(--muted); }
+    .error { background:#fee2e2; color:#b91c1c; padding:12px; border-radius:8px; margin-top:12px; font-size:13px; }
+    .hidden { display:none; }
+
+    .footer { text-align:center; margin-top:24px; padding:16px; color:var(--muted); font-size:12px; }
+    .footer a { color:var(--accent); text-decoration:none; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>⚽ Mundial Betting</h1>
-    <p class="subtitle">Modelo Dixon-Coles con contexto automático</p>
-    
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <h1>⚽ Mundial Betting</h1>
+        <p>Modelo Dixon-Coles con edge + contexto</p>
+      </div>
+      <div class="header-right">
+        <span class="badge">v2.0</span>
+        <span class="status" id="status">Cargando...</span>
+      </div>
+    </div>
+
+    <!-- Pitch -->
+    <div class="pitch">
+      <div class="pitch-lines">
+        <div class="pitch-line center"></div>
+        <div class="pitch-line circle"></div>
+        <div class="pitch-line penalty-left"></div>
+        <div class="pitch-line penalty-right"></div>
+      </div>
+      <div class="ball"></div>
+    </div>
+
+    <!-- Form -->
     <div class="card">
-      <h2>📋 Seleccionar partido</h2>
-      <div class="form-row">
-        <div>
+      <div class="card-title"><i class="fas fa-futbol"></i> Seleccionar partido</div>
+      <div class="form-grid">
+        <div class="form-group">
           <label>Equipo local</label>
-          <select id="home-team">
-            <option value="">Cargando...</option>
-          </select>
+          <select id="home"><option value="">Cargando...</option></select>
         </div>
-        <div>
+        <div class="form-group">
           <label>Equipo visitante</label>
-          <select id="away-team">
-            <option value="">Cargando...</option>
-          </select>
+          <select id="away"><option value="">Cargando...</option></select>
         </div>
       </div>
-      <button id="predict-btn" onclick="predict()">Predecir con contexto automático</button>
+
+      <label class="toggle-line">
+        <span>Sede neutral (sin ventaja de localía)</span>
+        <input id="neutral" type="checkbox" />
+      </label>
+      <label class="toggle-line">
+        <span>Usar contexto automático (H2H, forma, lesiones)</span>
+        <input id="useContext" type="checkbox" checked />
+      </label>
     </div>
-    
-    <div id="result-area" class="hidden">
+
+    <!-- Odds -->
+    <div class="card">
+      <div class="card-title"><i class="fas fa-dollar-sign"></i> Cuotas del mercado</div>
+      <div class="form-group">
+        <label>Formato</label>
+        <select id="oddsFormat">
+          <option value="american">Americano (+150, -120)</option>
+          <option value="decimal">Decimal (2.50, 1.83)</option>
+        </select>
+      </div>
+      <div class="odds-grid">
+        <div class="form-group">
+          <label>1 (Local)</label>
+          <input id="oddHome" type="number" step="0.01" placeholder="Ej: -120" />
+        </div>
+        <div class="form-group">
+          <label>X (Empate)</label>
+          <input id="oddDraw" type="number" step="0.01" placeholder="Ej: +280" />
+        </div>
+        <div class="form-group">
+          <label>2 (Visitante)</label>
+          <input id="oddAway" type="number" step="0.01" placeholder="Ej: +350" />
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="submitBtn" onclick="predict()">Calcular picks</button>
+
+    <div id="loading" class="loading hidden">Calculando...</div>
+    <div id="error" class="error hidden"></div>
+
+    <!-- Results -->
+    <div id="results" class="hidden">
       <div class="card">
-        <h2>📊 Predicción</h2>
-        
+        <div class="card-title"><i class="fas fa-chart-bar"></i> Predicción del modelo</div>
         <div class="xg-row">
-          <span class="xg-team" id="res-home-name">Local</span>
-          <span class="xg-value" id="res-home-xg">-</span>
+          <span class="xg-team" id="resHomeName">Local</span>
+          <span class="xg-value" id="resHomeXg">-</span>
         </div>
         <div class="xg-row">
-          <span class="xg-team" id="res-away-name">Visitante</span>
-          <span class="xg-value" id="res-away-xg">-</span>
+          <span class="xg-team" id="resAwayName">Visitante</span>
+          <span class="xg-value" id="resAwayXg">-</span>
         </div>
-        
         <div class="result-grid">
           <div class="result-cell">
             <div class="label">1</div>
-            <div class="pct" id="res-home-pct">-</div>
+            <div class="value" id="resHomePct">-</div>
+            <div class="sub" id="resHomeOdds">-</div>
           </div>
           <div class="result-cell">
             <div class="label">X</div>
-            <div class="pct" id="res-draw-pct">-</div>
+            <div class="value" id="resDrawPct">-</div>
+            <div class="sub" id="resDrawOdds">-</div>
           </div>
           <div class="result-cell">
             <div class="label">2</div>
-            <div class="pct" id="res-away-pct">-</div>
+            <div class="value" id="resAwayPct">-</div>
+            <div class="sub" id="resAwayOdds">-</div>
           </div>
         </div>
-        
-        <div class="context-section" id="context-section">
-          <h3>🎯 Ajustes de contexto aplicados</h3>
-          <div id="context-badges"></div>
-          <div class="h2h-stats" id="h2h-stats"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><i class="fas fa-crosshairs"></i> Edge vs. tu mercado</div>
+        <table class="edge-table">
+          <thead>
+            <tr>
+              <th>Mercado</th>
+              <th>Modelo</th>
+              <th>Mercado (no vig)</th>
+              <th>Edge</th>
+              <th>Pick</th>
+            </tr>
+          </thead>
+          <tbody id="edgeBody"></tbody>
+        </table>
+      </div>
+
+      <div id="contextCard" class="card hidden">
+        <div class="card-title"><i class="fas fa-brain"></i> Ajustes de contexto</div>
+        <div class="context-section">
+          <h3>Ajustes aplicados</h3>
+          <div class="context-badges" id="contextBadges"></div>
+          <div class="h2h-mini" id="h2hMini"></div>
         </div>
       </div>
     </div>
-    
-    <div id="loading" class="loading hidden">Calculando...</div>
-    <div id="error" class="error hidden"></div>
+
+    <div class="footer">
+      <p>Modelo Dixon-Coles con corrección tau · <a href="https://github.com/danielpcar9/Dixon-Cole-world-cup" target="_blank">GitHub</a></p>
+    </div>
   </div>
-  
+
   <script>
-    let teams = {};
-    
+    const $ = id => document.getElementById(id);
+
     async function loadTeams() {
       try {
         const res = await fetch('/teams');
-        teams = await res.json();
-        
-        const homeSelect = document.getElementById('home-team');
-        const awaySelect = document.getElementById('away-team');
-        
-        homeSelect.innerHTML = '<option value="">Seleccionar...</option>';
-        awaySelect.innerHTML = '<option value="">Seleccionar...</option>';
-        
-        Object.entries(teams).forEach(([key, data]) => {
-          const option = new Option(data.display_name || key, key);
-          homeSelect.add(option.cloneNode(true));
-          awaySelect.add(option);
-        });
-      } catch (err) {
-        showError('Error cargando equipos: ' + err.message);
-      }
-    }
-    
-    async function predict() {
-      const home = document.getElementById('home-team').value;
-      const away = document.getElementById('away-team').value;
-      
-      if (!home || !away) {
-        showError('Selecciona ambos equipos');
-        return;
-      }
-      if (home === away) {
-        showError('Los equipos deben ser diferentes');
-        return;
-      }
-      
-      document.getElementById('predict-btn').disabled = true;
-      document.getElementById('loading').classList.remove('hidden');
-      document.getElementById('result-area').classList.add('hidden');
-      document.getElementById('error').classList.add('hidden');
-      
-      try {
-        const res = await fetch('/predict-auto-context', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            home_team: home,
-            away_team: away,
-            neutral: false
-          })
-        });
-        
         const data = await res.json();
-        
-        if (!res.ok) {
-          throw new Error(data.detail || 'Error en la predicción');
-        }
-        
-        showResult(data);
-      } catch (err) {
-        showError(err.message);
-      } finally {
-        document.getElementById('predict-btn').disabled = false;
-        document.getElementById('loading').classList.add('hidden');
+        const home = $('home');
+        const away = $('away');
+        home.innerHTML = '<option value="">Seleccionar...</option>';
+        away.innerHTML = '<option value="">Seleccionar...</option>';
+        Object.entries(data).forEach(([key, t]) => {
+          const opt = new Option(t.display_name || key, key);
+          home.add(opt.cloneNode(true));
+          away.add(opt);
+        });
+        $('status').textContent = 'Listo';
+        $('status').style.color = '#15803d';
+      } catch (e) {
+        $('status').textContent = 'Error';
+        $('status').style.color = '#b91c1c';
+        showError('No se pudieron cargar los equipos: ' + e.message);
       }
     }
-    
-    function showResult(data) {
-      document.getElementById('result-area').classList.remove('hidden');
-      
-      document.getElementById('res-home-name').textContent = data.home_team;
-      document.getElementById('res-away-name').textContent = data.away_team;
-      document.getElementById('res-home-xg').textContent = data.expected_goals.home + ' xG';
-      document.getElementById('res-away-xg').textContent = data.expected_goals.away + ' xG';
-      
-      document.getElementById('res-home-pct').textContent = (data.markets.home * 100).toFixed(1) + '%';
-      document.getElementById('res-draw-pct').textContent = (data.markets.draw * 100).toFixed(1) + '%';
-      document.getElementById('res-away-pct').textContent = (data.markets.away * 100).toFixed(1) + '%';
-      
-      const ctxSection = document.getElementById('context-section');
-      const badgesDiv = document.getElementById('context-badges');
-      const h2hDiv = document.getElementById('h2h-stats');
-      
-      if (data.context) {
-        ctxSection.classList.remove('hidden');
-        const adj = data.context.adjustments;
-        
-        badgesDiv.innerHTML = `
-          <span class="badge ${adj.h2h_boost_applied ? 'active' : 'inactive'}">
-            ${adj.h2h_boost_applied ? '✓' : '○'} H2H Histórico
-          </span>
-          <span class="badge ${adj.btts_boost_applied ? 'active' : 'inactive'}">
-            ${adj.btts_boost_applied ? '✓' : '○'} Rachas BTTS
-          </span>
-          <span class="badge ${adj.key_players_boost_applied ? 'active' : 'inactive'}">
-            ${adj.key_players_boost_applied ? '✓' : '○'} Jugadores clave
-          </span>
-        `;
-        
-        if (data.context.h2h_home_win_rate !== null) {
-          h2hDiv.innerHTML = `
-            <div class="h2h-stat">
-              <div class="num">${(data.context.h2h_home_win_rate * 100).toFixed(0)}%</div>
-              <div class="lbl">Win rate local</div>
-            </div>
-            <div class="h2h-stat">
-              <div class="num">${(data.context.h2h_btts_rate * 100).toFixed(0)}%</div>
-              <div class="lbl">BTTS rate</div>
-            </div>
-            <div class="h2h-stat">
-              <div class="num">${data.context.adjustments.home_attack_multiplier.toFixed(2)}x</div>
-              <div class="lbl">Ataque local</div>
-            </div>
-          `;
-        } else {
-          h2hDiv.innerHTML = '<div class="h2h-stat" style="grid-column: 1/-1;"><div class="lbl">Sin historial H2H previo</div></div>';
-        }
-      } else {
-        ctxSection.classList.add('hidden');
-      }
-    }
-    
+
     function showError(msg) {
-      const el = document.getElementById('error');
+      const el = $('error');
       el.textContent = msg;
       el.classList.remove('hidden');
     }
-    
+
+    function hideError() {
+      $('error').classList.add('hidden');
+    }
+
+    function americanToProb(odds) {
+      if (odds > 0) return 100 / (odds + 100);
+      return -odds / (-odds + 100);
+    }
+
+    function decimalToProb(odds) {
+      return 1 / odds;
+    }
+
+    function getOdds() {
+      const fmt = $('oddsFormat').value;
+      const conv = fmt === 'american' ? americanToProb : decimalToProb;
+      const odds = {};
+      const fields = [
+        ['home', 'oddHome'],
+        ['draw', 'oddDraw'],
+        ['away', 'oddAway'],
+      ];
+      for (const [k, id] of fields) {
+        const v = $(id).value;
+        if (v !== '') odds[k] = parseFloat(v);
+      }
+      return { format: fmt, odds };
+    }
+
+    async function predict() {
+      const home = $('home').value;
+      const away = $('away').value;
+      if (!home || !away) { showError('Selecciona ambos equipos'); return; }
+      if (home === away) { showError('Los equipos deben ser diferentes'); return; }
+
+      hideError();
+      $('submitBtn').disabled = true;
+      $('loading').classList.remove('hidden');
+      $('results').classList.add('hidden');
+
+      const { format, odds } = getOdds();
+      const payload = {
+        home_team: home,
+        away_team: away,
+        neutral: $('neutral').checked,
+        odds_format: format,
+      };
+      if (Object.keys(odds).length > 0) payload.odds = odds;
+
+      const endpoint = $('useContext').checked ? '/predict-auto-context' : '/predict';
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Error en predicción');
+        renderResult(data);
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        $('submitBtn').disabled = false;
+        $('loading').classList.add('hidden');
+      }
+    }
+
+    function renderResult(data) {
+      $('results').classList.remove('hidden');
+
+      // xG
+      $('resHomeName').textContent = data.home_team;
+      $('resAwayName').textContent = data.away_team;
+      $('resHomeXg').textContent = data.expected_goals.home + ' xG';
+      $('resAwayXg').textContent = data.expected_goals.away + ' xG';
+
+      // Markets
+      $('resHomePct').textContent = (data.markets.home * 100).toFixed(1) + '%';
+      $('resDrawPct').textContent = (data.markets.draw * 100).toFixed(1) + '%';
+      $('resAwayPct').textContent = (data.markets.away * 100).toFixed(1) + '%';
+
+      // Odds implied
+      const { odds } = getOdds();
+      $('resHomeOdds').textContent = odds.home ? ('Implied: ' + (americanToProb(odds.home)*100).toFixed(1) + '%') : '';
+      $('resDrawOdds').textContent = odds.draw ? ('Implied: ' + (americanToProb(odds.draw)*100).toFixed(1) + '%') : '';
+      $('resAwayOdds').textContent = odds.away ? ('Implied: ' + (americanToProb(odds.away)*100).toFixed(1) + '%') : '';
+
+      // Edge
+      const tbody = $('edgeBody');
+      tbody.innerHTML = '';
+      if (data.edges) {
+        for (const [market, info] of Object.entries(data.edges)) {
+          const edgeVal = info.edge;
+          const edgeClass = edgeVal > 0 ? 'edge-pos' : (edgeVal < 0 ? 'edge-neg' : '');
+          const pickClass = info.pick.toLowerCase();
+          tbody.innerHTML += `
+            <tr>
+              <td>${market.toUpperCase()}</td>
+              <td>${(info.model_probability * 100).toFixed(1)}%</td>
+              <td>${(info.market_probability_no_vig * 100).toFixed(1)}%</td>
+              <td class="${edgeClass}">${(edgeVal * 100).toFixed(2)}%</td>
+              <td><span class="pick ${pickClass}">${info.pick}</span></td>
+            </tr>
+          `;
+        }
+      }
+
+      // Context
+      const ctxCard = $('contextCard');
+      if (data.context) {
+        ctxCard.classList.remove('hidden');
+        const adj = data.context.adjustments;
+        $('contextBadges').innerHTML = `
+          <span class="ctx-badge ${adj.h2h_boost_applied ? 'on' : 'off'}">
+            ${adj.h2h_boost_applied ? '●' : '○'} H2H
+          </span>
+          <span class="ctx-badge ${adj.btts_boost_applied ? 'on' : 'off'}">
+            ${adj.btts_boost_applied ? '●' : '○'} BTTS
+          </span>
+          <span class="ctx-badge ${adj.key_players_boost_applied ? 'on' : 'off'}">
+            ${adj.key_players_boost_applied ? '●' : '○'} Jugadores
+          </span>
+        `;
+
+        const h2h = $('h2hMini');
+        if (data.context.h2h_home_win_rate !== null) {
+          h2h.innerHTML = `
+            <div><div class="num">${(data.context.h2h_home_win_rate * 100).toFixed(0)}%</div><div class="lbl">Win local H2H</div></div>
+            <div><div class="num">${(data.context.h2h_btts_rate * 100).toFixed(0)}%</div><div class="lbl">BTTS H2H</div></div>
+            <div><div class="num">${adj.home_attack_multiplier.toFixed(2)}x</div><div class="lbl">Atk local</div></div>
+          `;
+        } else {
+          h2h.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);font-size:12px;">Sin historial H2H previo</div>';
+        }
+      } else {
+        ctxCard.classList.add('hidden');
+      }
+    }
+
     loadTeams();
   </script>
 </body>
