@@ -1,8 +1,14 @@
 from fastapi.testclient import TestClient
 
 from mundial_betting.api import app
-from mundial_betting.dixon_coles import market_probabilities, score_matrix, train_ratings
+from mundial_betting.dixon_coles import market_probabilities, score_matrix, tau_correction, train_ratings
 from mundial_betting.models import MatchData
+
+
+def test_tau_correction_is_bounded_for_extreme_values() -> None:
+    correction = tau_correction(0, 0, 100.0, 100.0, -0.13)
+
+    assert 0.01 <= correction <= 2.0
 
 
 def test_score_matrix_is_normalized() -> None:

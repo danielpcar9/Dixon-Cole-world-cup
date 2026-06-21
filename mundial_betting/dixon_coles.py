@@ -27,14 +27,16 @@ def poisson_pmf(goals: int, expected_goals: float) -> float:
 
 def tau_correction(home_goals: int, away_goals: int, lmbda: float, mu: float, rho: float) -> float:
     if home_goals == 0 and away_goals == 0:
-        return max(0.01, 1 - lmbda * mu * rho)
-    if home_goals == 0 and away_goals == 1:
-        return max(0.01, 1 + lmbda * rho)
-    if home_goals == 1 and away_goals == 0:
-        return max(0.01, 1 + mu * rho)
-    if home_goals == 1 and away_goals == 1:
-        return max(0.01, 1 - rho)
-    return 1.0
+        correction = 1 - lmbda * mu * rho
+    elif home_goals == 0 and away_goals == 1:
+        correction = 1 + lmbda * rho
+    elif home_goals == 1 and away_goals == 0:
+        correction = 1 + mu * rho
+    elif home_goals == 1 and away_goals == 1:
+        correction = 1 - rho
+    else:
+        correction = 1.0
+    return min(2.0, max(0.01, correction))
 
 
 def expected_goals(
