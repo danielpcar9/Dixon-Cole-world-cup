@@ -1,168 +1,510 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Editar Contexto - Mundial Betting</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contexto de Equipo — DC Scouting</title>
+  <meta name="description" content="Editor de contexto: forma reciente, jugadores clave e historial H2H para el modelo Dixon-Coles." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <style>
+    /* ===== DESIGN TOKENS ===== */
     :root {
-      --accent: #175cff;
-      --accent-dark: #0a3f9e;
-      --bg: #f7f8fa;
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --border: #e2e8f0;
-      --radius: 12px;
-      --shadow: 0 2px 12px rgba(0,0,0,0.06);
-      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --navy-950: #030C18;
+      --navy-900: #05121f;
+      --navy-800: #091a2e;
+      --navy-700: #0d2240;
+      --navy-600: #123052;
+      --navy-500: #1e4570;
+      --amber:    #F59E0B;
+      --amber-lt: #FCD34D;
+      --amber-dk: #B45309;
+      --amber-dim: rgba(245,158,11,0.12);
+      --amber-glow: rgba(245,158,11,0.06);
+      --cyan:     #22D3EE;
+      --green:    #10B981;
+      --red:      #F43F5E;
+      --text:     #E2E8F0;
+      --text-dim: #94A3B8;
+      --text-muted: #475569;
+      --border:   rgba(255,255,255,0.06);
+      --border-lit: rgba(245,158,11,0.25);
+      --glass:    rgba(9,26,46,0.70);
+      --radius:   12px;
+      --radius-lg: 16px;
+      --font-ui:   'Space Grotesk', system-ui, sans-serif;
+      --font-data: 'Space Mono', 'Courier New', monospace;
     }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:var(--font); background:var(--bg); color:var(--text); line-height:1.5; }
-    .container { max-width:800px; margin:0 auto; padding:24px; }
-    
-    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
-    h1 { font-size:20px; font-weight:700; }
-    .back { color:var(--accent); text-decoration:none; font-size:14px; }
-    
-    .card { background:var(--card); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:var(--shadow); border:1px solid var(--border); }
-    .card-title { font-size:14px; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:8px; color:var(--accent); }
-    
-    .form-group { margin-bottom:12px; }
-    .form-group label { display:block; font-size:12px; font-weight:500; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
-    .form-group input, .form-group select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; }
-    .form-group input:focus, .form-group select:focus { outline:none; border-color:var(--accent); }
-    
-    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    @media (max-width:640px) { .form-grid { grid-template-columns:1fr; } }
-    
-    .results-input { display:flex; gap:6px; margin-bottom:12px; }
-    .results-input button { flex:1; padding:10px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; font-weight:700; font-size:16px; }
-    .results-input button:hover { background:var(--bg); }
-    .results-input button.selected { background:var(--accent); color:#fff; border-color:var(--accent); }
-    
-    .results-display { display:flex; gap:4px; margin-bottom:12px; }
-    .result-tag { padding:4px 12px; border-radius:4px; font-size:12px; font-weight:700; }
-    .result-tag.W { background:#dcfce7; color:#15803d; }
-    .result-tag.D { background:#fef3c7; color:#b45309; }
-    .result-tag.L { background:#fee2e2; color:#b91c1c; }
-    
-    .player-row { display:grid; grid-template-columns:2fr 1fr 1fr 40px; gap:8px; align-items:center; margin-bottom:8px; }
-    .player-row input, .player-row select { padding:8px; font-size:13px; }
-    .btn-icon { width:36px; height:36px; border:none; background:#fee2e2; color:#b91c1c; border-radius:6px; cursor:pointer; font-size:16px; }
-    .btn-icon:hover { background:#fecaca; }
-    
-    .btn-primary { width:100%; padding:12px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
-    .btn-primary:hover { background:var(--accent-dark); }
-    .btn-secondary { padding:8px 16px; background:#f1f5f9; border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:13px; }
-    .btn-secondary:hover { background:#e2e8f0; }
-    
-    .h2h-row { display:grid; grid-template-columns:1fr 80px 80px 40px; gap:8px; align-items:center; margin-bottom:8px; }
-    
-    .success { background:#dcfce7; color:#15803d; padding:12px; border-radius:8px; margin-top:12px; }
-    .error { background:#fee2e2; color:#b91c1c; padding:12px; border-radius:8px; margin-top:12px; }
-    .hidden { display:none; }
+
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-ui);
+      background: var(--navy-950);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(245,158,11,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245,158,11,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 840px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 36px;
+      gap: 12px;
+    }
+    .header-left { display: flex; flex-direction: column; gap: 2px; }
+    .page-sup {
+      font-family: var(--font-data);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--amber);
+      text-transform: uppercase;
+    }
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-decoration: none;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--glass);
+      transition: all 0.2s;
+    }
+    .back-link:hover { color: var(--amber); border-color: var(--border-lit); background: var(--amber-dim); }
+
+    /* ── Card ── */
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 16px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .card:hover {
+      border-color: rgba(245,158,11,0.10);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--amber-dim);
+      border: 1px solid var(--border-lit);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .card-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      display: block;
+      font-family: var(--font-data);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--navy-800);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--font-ui);
+      font-size: 14px;
+      color: var(--text);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px rgba(245,158,11,0.12);
+    }
+    .form-control option { background: var(--navy-800); color: var(--text); }
+    select.form-control {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394A3B8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+    .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .form-grid-2 { grid-template-columns: 1fr; } }
+
+    /* ── Result selector (W/D/L) ── */
+    .result-selector { display: flex; gap: 8px; margin-bottom: 12px; }
+    .result-btn {
+      flex: 1;
+      padding: 10px;
+      background: var(--navy-800);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--font-data);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .result-btn:hover { border-color: var(--amber); color: var(--amber); }
+    .result-btn.W { background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3); color: #34D399; }
+    .result-btn.D { background: var(--amber-dim); border-color: var(--border-lit); color: var(--amber); }
+    .result-btn.L { background: rgba(244,63,94,0.12); border-color: rgba(244,63,94,0.25); color: #FDA4AF; }
+
+    .results-strip { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; min-height: 28px; }
+    .res-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 5px;
+      font-family: var(--font-data);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .res-chip:hover { opacity: 0.7; }
+    .res-chip.W { background: rgba(16,185,129,0.2); color: #34D399; border: 1px solid rgba(16,185,129,0.3); }
+    .res-chip.D { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--border-lit); }
+    .res-chip.L { background: rgba(244,63,94,0.12); color: #FDA4AF; border: 1px solid rgba(244,63,94,0.2); }
+
+    /* ── Players table ── */
+    .player-row {
+      display: grid;
+      grid-template-columns: 1fr 120px 90px 36px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 560px) {
+      .player-row { grid-template-columns: 1fr 90px 36px; }
+      .player-row .p-impact { display: none; }
+    }
+    .player-row input, .player-row select {
+      padding: 8px 10px;
+      background: var(--navy-800);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-family: var(--font-ui);
+      font-size: 13px;
+      color: var(--text);
+      width: 100%;
+    }
+    .player-row input:focus, .player-row select:focus {
+      outline: none;
+      border-color: var(--amber);
+    }
+    .player-row select option { background: var(--navy-800); }
+    .btn-icon {
+      width: 36px;
+      height: 36px;
+      border: 1px solid rgba(244,63,94,0.25);
+      background: rgba(244,63,94,0.10);
+      color: #FDA4AF;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .btn-icon:hover { background: rgba(244,63,94,0.20); }
+
+    /* ── H2H list ── */
+    .h2h-row {
+      display: grid;
+      grid-template-columns: 1fr 70px 70px 36px;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .h2h-row:last-child { border-bottom: none; }
+    .h2h-row span { font-size: 13px; color: var(--text-dim); }
+    .h2h-row input {
+      padding: 6px 8px;
+      background: var(--navy-800);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: var(--font-data);
+      font-size: 13px;
+      color: var(--text);
+      text-align: center;
+      width: 100%;
+    }
+    .h2h-score-sep {
+      font-family: var(--font-data);
+      font-size: 14px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--amber-dk) 0%, var(--amber) 100%);
+      color: var(--navy-950);
+      border: none;
+      border-radius: 10px;
+      font-family: var(--font-ui);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      margin-top: 4px;
+    }
+    .btn-primary:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(245,158,11,0.35);
+    }
+    .btn-secondary {
+      padding: 8px 14px;
+      background: var(--navy-700);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-dim); }
+
+    /* ── Notifications ── */
+    .notif {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: fade-in 0.25s ease;
+    }
+    @keyframes fade-in { from { opacity:0; transform:translateY(4px); } }
+    .notif.success {
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.25);
+      color: #34D399;
+    }
+    .notif.error {
+      background: rgba(244,63,94,0.10);
+      border: 1px solid rgba(244,63,94,0.25);
+      color: #FDA4AF;
+    }
+
+    /* ── Editor reveal ── */
+    #editor { transition: opacity 0.3s; }
+    #editor.hidden { opacity: 0; pointer-events: none; display: none !important; }
+
+    .hidden { display: none !important; }
+
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-family: var(--font-data);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    footer a { color: var(--amber); text-decoration: none; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>✏️ Editar Contexto de Equipo</h1>
-      <a href="/" class="back">← Volver a predicciones</a>
-    </div>
 
-    <!-- Seleccionar equipo -->
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="page-sup">DC Scouting · Editor</div>
+        <h1 class="page-title">Contexto de Equipo</h1>
+      </div>
+      <a href="/" class="back-link">← Predicciones</a>
+    </header>
+
+    <!-- Team selector -->
     <div class="card">
-      <div class="card-title"><i class="fas fa-futbol"></i> Seleccionar equipo</div>
+      <div class="card-header">
+        <div class="card-icon">⚽</div>
+        <div>
+          <div class="card-title">Seleccionar equipo</div>
+          <div class="card-subtitle">Carga datos persistidos si existen</div>
+        </div>
+      </div>
       <div class="form-group">
-        <label>Equipo</label>
-        <select id="team" onchange="loadTeamData()">
+        <label class="form-label">Equipo</label>
+        <select id="team" class="form-control" onchange="loadTeamData()">
           <option value="">Cargando...</option>
         </select>
       </div>
     </div>
 
+    <!-- Editor (hidden until team selected) -->
     <div id="editor" class="hidden">
-      <!-- Forma -->
+
+      <!-- Forma reciente -->
       <div class="card">
-        <div class="card-title"><i class="fas fa-history"></i> Forma reciente (últimos 5)</div>
-        <label style="font-size:12px;color:var(--muted);margin-bottom:8px;display:block;">Click para añadir resultado:</label>
-        <div class="results-input">
-          <button onclick="addResult('W')">W</button>
-          <button onclick="addResult('D')">D</button>
-          <button onclick="addResult('L')">L</button>
+        <div class="card-header">
+          <div class="card-icon">📈</div>
+          <div>
+            <div class="card-title">Forma reciente</div>
+            <div class="card-subtitle">Últimos 5 partidos — click para añadir</div>
+          </div>
         </div>
-        <div class="results-display" id="resultsDisplay"></div>
-        <button class="btn-secondary" onclick="clearResults()" style="margin-bottom:16px;">Limpiar</button>
-        
-        <div class="form-grid">
+        <div class="result-selector">
+          <button class="result-btn" onclick="addResult('W')">W</button>
+          <button class="result-btn" onclick="addResult('D')">D</button>
+          <button class="result-btn" onclick="addResult('L')">L</button>
+        </div>
+        <div class="results-strip" id="resultsStrip">
+          <!-- chips -->
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <button class="btn-secondary" onclick="clearResults()">✕ Limpiar</button>
+        </div>
+        <div class="form-grid-2">
           <div class="form-group">
-            <label>Goles anotados (últimos 5)</label>
-            <input id="goalsFor" type="number" min="0" value="0">
+            <label class="form-label">Goles anotados (últ. 5)</label>
+            <input id="goalsFor" type="number" min="0" value="0" class="form-control" />
           </div>
           <div class="form-group">
-            <label>Goles recibidos (últimos 5)</label>
-            <input id="goalsAgainst" type="number" min="0" value="0">
+            <label class="form-label">Goles recibidos (últ. 5)</label>
+            <input id="goalsAgainst" type="number" min="0" value="0" class="form-control" />
           </div>
           <div class="form-group">
-            <label>Partidos con BTTS</label>
-            <input id="btts" type="number" min="0" max="5" value="0">
+            <label class="form-label">Partidos con BTTS</label>
+            <input id="btts" type="number" min="0" max="5" value="0" class="form-control" />
           </div>
           <div class="form-group">
-            <label>Porterías a cero</label>
-            <input id="cleanSheets" type="number" min="0" max="5" value="0">
+            <label class="form-label">Porterías a cero</label>
+            <input id="cleanSheets" type="number" min="0" max="5" value="0" class="form-control" />
           </div>
         </div>
       </div>
 
-      <!-- Jugadores -->
+      <!-- Jugadores clave -->
       <div class="card">
-        <div class="card-title"><i class="fas fa-users"></i> Jugadores clave</div>
-        <div id="playersList"></div>
-        <button class="btn-secondary" onclick="addPlayer()" style="margin-top:8px;">+ Añadir jugador</button>
+        <div class="card-header">
+          <div class="card-icon">👤</div>
+          <div>
+            <div class="card-title">Jugadores clave</div>
+            <div class="card-subtitle">Estado e impacto en el modelo (0.0–1.0)</div>
+          </div>
+        </div>
+        <div id="playersList">
+          <!-- rows injected by JS -->
+        </div>
+        <button class="btn-secondary" onclick="addPlayer()" style="margin-top:10px;">+ Añadir jugador</button>
       </div>
 
       <!-- H2H -->
       <div class="card">
-        <div class="card-title"><i class="fas fa-handshake"></i> Historial H2H</div>
-        <div class="form-group">
-          <label>Rival</label>
-          <select id="h2hRival"><option value="">Seleccionar...</option></select>
-        </div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>Goles equipo</label>
-            <input id="h2hGoalsA" type="number" min="0" value="0">
-          </div>
-          <div class="form-group">
-            <label>Goles rival</label>
-            <input id="h2hGoalsB" type="number" min="0" value="0">
+        <div class="card-header">
+          <div class="card-icon">⚔️</div>
+          <div>
+            <div class="card-title">Historial Head-to-Head</div>
+            <div class="card-subtitle">Añade partidos para calibrar el modelo</div>
           </div>
         </div>
-        <button class="btn-secondary" onclick="addH2H()" style="margin-top:8px;">+ Añadir partido H2H</button>
-        <div id="h2hList" style="margin-top:12px;"></div>
+        <div class="form-grid-2" style="margin-bottom:12px;">
+          <div class="form-group">
+            <label class="form-label">Rival</label>
+            <select id="h2hRival" class="form-control">
+              <option value="">Seleccionar...</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:6px;">
+            <div>
+              <label class="form-label">Goles equipo</label>
+              <input id="h2hGoalsA" type="number" min="0" value="0" class="form-control" />
+            </div>
+            <div class="h2h-score-sep" style="padding-bottom:10px;">—</div>
+            <div>
+              <label class="form-label">Goles rival</label>
+              <input id="h2hGoalsB" type="number" min="0" value="0" class="form-control" />
+            </div>
+          </div>
+        </div>
+        <button class="btn-secondary" onclick="addH2H()">+ Añadir partido H2H</button>
+        <div id="h2hList" style="margin-top:16px;"></div>
       </div>
 
-      <button class="btn-primary" onclick="saveTeam()">💾 Guardar contexto</button>
+      <button class="btn-primary" onclick="saveTeam()">💾 GUARDAR CONTEXTO</button>
       <div id="message"></div>
-    </div>
+
+    </div><!-- /editor -->
+
+    <footer><a href="/">← Volver a predicciones</a> · DC Scouting v2</footer>
   </div>
 
   <script>
     const $ = id => document.getElementById(id);
     let teams = {};
     let currentResults = [];
-    let currentPlayers = [];
-    let currentH2H = [];
 
+    /* ── load teams ── */
     async function loadTeams() {
       try {
         const res = await fetch('/teams');
         teams = await res.json();
-        
-        const selects = ['team', 'h2hRival'];
-        selects.forEach(id => {
+        ['team', 'h2hRival'].forEach(id => {
           const sel = $(id);
           sel.innerHTML = '<option value="">Seleccionar...</option>';
           Object.entries(teams).forEach(([key, t]) => {
@@ -174,101 +516,89 @@
       }
     }
 
+    /* ── load team data ── */
     async function loadTeamData() {
       const team = $('team').value;
-      if (!team) {
-        $('editor').classList.add('hidden');
-        return;
-      }
+      if (!team) { $('editor').classList.add('hidden'); return; }
 
-      // Reset
+      // reset
       currentResults = [];
-      currentPlayers = [];
-      currentH2H = [];
-      $('resultsDisplay').innerHTML = '';
+      $('resultsStrip').innerHTML = '';
       $('playersList').innerHTML = '';
       $('h2hList').innerHTML = '';
       $('goalsFor').value = 0;
       $('goalsAgainst').value = 0;
       $('btts').value = 0;
       $('cleanSheets').value = 0;
-      $('message').className = 'hidden';
+      $('message').innerHTML = '';
 
-      // Cargar datos existentes si hay
       try {
         const res = await fetch(`/context/${team}`);
         if (res.status === 200) {
           const data = await res.json();
-          
           if (data.form) {
             currentResults = data.form.last_results || [];
             renderResults();
-            $('goalsFor').value = data.form.goals_scored || 0;
+            $('goalsFor').value    = data.form.goals_scored    || 0;
             $('goalsAgainst').value = data.form.goals_conceded || 0;
-            $('btts').value = data.form.btts_count || 0;
-            $('cleanSheets').value = data.form.clean_sheets || 0;
+            $('btts').value         = data.form.btts_count     || 0;
+            $('cleanSheets').value  = data.form.clean_sheets   || 0;
           }
-          
           if (data.key_players) {
             data.key_players.forEach(p => addPlayer(p));
           }
         }
-      } catch (e) {
-        // No hay datos previos
-      }
+      } catch { /* no prev data */ }
 
       $('editor').classList.remove('hidden');
     }
 
+    /* ── results strip ── */
     function addResult(r) {
       if (currentResults.length >= 5) currentResults.shift();
       currentResults.push(r);
       renderResults();
     }
-
-    function clearResults() {
-      currentResults = [];
-      renderResults();
-    }
-
+    function clearResults() { currentResults = []; renderResults(); }
+    function removeResult(i) { currentResults.splice(i, 1); renderResults(); }
     function renderResults() {
-      $('resultsDisplay').innerHTML = currentResults.map(r => 
-        `<span class="result-tag ${r}">${r}</span>`
+      $('resultsStrip').innerHTML = currentResults.map((r, i) =>
+        `<span class="res-chip ${r}" onclick="removeResult(${i})" title="Click para quitar">${r}</span>`
       ).join('');
     }
 
-    function addPlayer(player = {name:'', status:'available', impact:1.0}) {
+    /* ── player rows ── */
+    function addPlayer(player = { name: '', status: 'available', impact: 1.0 }) {
       const div = document.createElement('div');
       div.className = 'player-row';
       div.innerHTML = `
-        <input type="text" placeholder="Nombre del jugador" value="${player.name}" class="p-name">
+        <input type="text" placeholder="Nombre del jugador" value="${player.name}" class="p-name" />
         <select class="p-status">
-          <option value="available" ${player.status==='available'?'selected':''}>Disponible</option>
-          <option value="doubtful" ${player.status==='doubtful'?'selected':''}>Dudoso</option>
-          <option value="injured" ${player.status==='injured'?'selected':''}>Lesionado</option>
-          <option value="suspended" ${player.status==='suspended'?'selected':''}>Suspendido</option>
+          <option value="available" ${player.status === 'available' ? 'selected' : ''}>Disponible</option>
+          <option value="doubtful"  ${player.status === 'doubtful'  ? 'selected' : ''}>Dudoso</option>
+          <option value="injured"   ${player.status === 'injured'   ? 'selected' : ''}>Lesionado</option>
+          <option value="suspended" ${player.status === 'suspended' ? 'selected' : ''}>Suspendido</option>
         </select>
-        <input type="number" min="0" max="1" step="0.1" value="${player.impact}" class="p-impact" placeholder="Impacto">
-        <button class="btn-icon" onclick="this.parentElement.remove()">×</button>
+        <input type="number" min="0" max="1" step="0.1" value="${player.impact}" class="p-impact" placeholder="Impact" />
+        <button class="btn-icon" onclick="this.parentElement.remove()" title="Quitar jugador">×</button>
       `;
       $('playersList').appendChild(div);
     }
 
+    /* ── H2H ── */
+    let currentH2H = [];
     function addH2H() {
-      const rival = $('h2hRival').value;
+      const rival  = $('h2hRival').value;
       const goalsA = parseInt($('h2hGoalsA').value) || 0;
       const goalsB = parseInt($('h2hGoalsB').value) || 0;
-      
       if (!rival) return;
       if (rival === $('team').value) {
         showMsg('No puedes seleccionar el mismo equipo como rival', 'error');
         return;
       }
-      
       currentH2H.push({ rival, goalsA, goalsB });
       renderH2H();
-      
-      $('h2hRival').value = '';
+      $('h2hRival').value  = '';
       $('h2hGoalsA').value = 0;
       $('h2hGoalsB').value = 0;
     }
@@ -277,13 +607,15 @@
       $('h2hList').innerHTML = currentH2H.map((h, i) => `
         <div class="h2h-row">
           <span>${teams[h.rival]?.display_name || h.rival}</span>
-          <input type="number" value="${h.goalsA}" min="0" onchange="currentH2H[${i}].goalsA=this.value">
-          <input type="number" value="${h.goalsB}" min="0" onchange="currentH2H[${i}].goalsB=this.value">
+          <input type="number" value="${h.goalsA}" min="0"
+            onchange="currentH2H[${i}].goalsA = parseInt(this.value) || 0" />
+          <input type="number" value="${h.goalsB}" min="0"
+            onchange="currentH2H[${i}].goalsB = parseInt(this.value) || 0" />
           <button class="btn-icon" onclick="currentH2H.splice(${i},1);renderH2H();">×</button>
-        </div>
-      `).join('');
+        </div>`).join('');
     }
 
+    /* ── save ── */
     async function saveTeam() {
       const team = $('team').value;
       if (!team) return;
@@ -295,7 +627,7 @@
           players.push({
             name,
             status: row.querySelector('.p-status').value,
-            impact: parseFloat(row.querySelector('.p-impact').value) || 1.0,
+            impact: parseFloat(row.querySelector('.p-impact')?.value) || 1.0,
           });
         }
       });
@@ -303,11 +635,11 @@
       const payload = {
         team_name: team,
         form: {
-          last_results: currentResults,
-          goals_scored: parseInt($('goalsFor').value) || 0,
+          last_results:   currentResults,
+          goals_scored:   parseInt($('goalsFor').value)    || 0,
           goals_conceded: parseInt($('goalsAgainst').value) || 0,
-          btts_count: parseInt($('btts').value) || 0,
-          clean_sheets: parseInt($('cleanSheets').value) || 0,
+          btts_count:     parseInt($('btts').value)         || 0,
+          clean_sheets:   parseInt($('cleanSheets').value)  || 0,
         },
         key_players: players,
       };
@@ -315,44 +647,42 @@
       try {
         const res = await fetch(`/context/${team}`, {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-        
         if (res.ok) {
-          showMsg('✅ Contexto guardado correctamente', 'success');
+          showMsg('✓ Contexto guardado correctamente', 'success');
         } else {
-          showMsg('❌ Error guardando contexto', 'error');
+          showMsg('✕ Error guardando contexto', 'error');
         }
-      } catch (e) {
-        showMsg('❌ Error de conexión', 'error');
+      } catch {
+        showMsg('✕ Error de conexión con el servidor', 'error');
       }
 
-      // Guardar H2H
+      // Save H2H entries
       for (const h of currentH2H) {
         try {
           await fetch('/h2h', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              team_a: team,
-              team_b: h.rival,
-              goals_a: parseInt(h.goalsA),
-              goals_b: parseInt(h.goalsB),
-              date: new Date().toISOString().split('T')[0],
+              team_a:     team,
+              team_b:     h.rival,
+              goals_a:    parseInt(h.goalsA),
+              goals_b:    parseInt(h.goalsB),
+              date:       new Date().toISOString().split('T')[0],
             }),
           });
-        } catch (e) {
-          console.error('Error guardando H2H:', e);
-        }
+        } catch { /* silently fail individual H2H */ }
       }
+      currentH2H = [];
+      renderH2H();
     }
 
     function showMsg(msg, type) {
       const el = $('message');
-      el.textContent = msg;
-      el.className = type;
-      setTimeout(() => el.className = 'hidden', 3000);
+      el.innerHTML = `<div class="notif ${type}">${msg}</div>`;
+      setTimeout(() => { el.innerHTML = ''; }, 3500);
     }
 
     loadTeams();
