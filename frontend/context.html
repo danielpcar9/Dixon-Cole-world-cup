@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editar Contexto - Mundial Betting</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --accent: #175cff;
+      --accent-dark: #0a3f9e;
+      --bg: #f7f8fa;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.06);
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:var(--font); background:var(--bg); color:var(--text); line-height:1.5; }
+    .container { max-width:800px; margin:0 auto; padding:24px; }
+    
+    .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+    h1 { font-size:20px; font-weight:700; }
+    .back { color:var(--accent); text-decoration:none; font-size:14px; }
+    
+    .card { background:var(--card); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:var(--shadow); border:1px solid var(--border); }
+    .card-title { font-size:14px; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:8px; color:var(--accent); }
+    
+    .form-group { margin-bottom:12px; }
+    .form-group label { display:block; font-size:12px; font-weight:500; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+    .form-group input, .form-group select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:14px; }
+    .form-group input:focus, .form-group select:focus { outline:none; border-color:var(--accent); }
+    
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:640px) { .form-grid { grid-template-columns:1fr; } }
+    
+    .results-input { display:flex; gap:6px; margin-bottom:12px; }
+    .results-input button { flex:1; padding:10px; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; font-weight:700; font-size:16px; }
+    .results-input button:hover { background:var(--bg); }
+    .results-input button.selected { background:var(--accent); color:#fff; border-color:var(--accent); }
+    
+    .results-display { display:flex; gap:4px; margin-bottom:12px; }
+    .result-tag { padding:4px 12px; border-radius:4px; font-size:12px; font-weight:700; }
+    .result-tag.W { background:#dcfce7; color:#15803d; }
+    .result-tag.D { background:#fef3c7; color:#b45309; }
+    .result-tag.L { background:#fee2e2; color:#b91c1c; }
+    
+    .player-row { display:grid; grid-template-columns:2fr 1fr 1fr 40px; gap:8px; align-items:center; margin-bottom:8px; }
+    .player-row input, .player-row select { padding:8px; font-size:13px; }
+    .btn-icon { width:36px; height:36px; border:none; background:#fee2e2; color:#b91c1c; border-radius:6px; cursor:pointer; font-size:16px; }
+    .btn-icon:hover { background:#fecaca; }
+    
+    .btn-primary { width:100%; padding:12px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
+    .btn-primary:hover { background:var(--accent-dark); }
+    .btn-secondary { padding:8px 16px; background:#f1f5f9; border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:13px; }
+    .btn-secondary:hover { background:#e2e8f0; }
+    
+    .h2h-row { display:grid; grid-template-columns:1fr 80px 80px 40px; gap:8px; align-items:center; margin-bottom:8px; }
+    
+    .success { background:#dcfce7; color:#15803d; padding:12px; border-radius:8px; margin-top:12px; }
+    .error { background:#fee2e2; color:#b91c1c; padding:12px; border-radius:8px; margin-top:12px; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✏️ Editar Contexto de Equipo</h1>
+      <a href="/" class="back">← Volver a predicciones</a>
+    </div>
+
+    <!-- Seleccionar equipo -->
+    <div class="card">
+      <div class="card-title"><i class="fas fa-futbol"></i> Seleccionar equipo</div>
+      <div class="form-group">
+        <label>Equipo</label>
+        <select id="team" onchange="loadTeamData()">
+          <option value="">Cargando...</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="editor" class="hidden">
+      <!-- Forma -->
+      <div class="card">
+        <div class="card-title"><i class="fas fa-history"></i> Forma reciente (últimos 5)</div>
+        <label style="font-size:12px;color:var(--muted);margin-bottom:8px;display:block;">Click para añadir resultado:</label>
+        <div class="results-input">
+          <button onclick="addResult('W')">W</button>
+          <button onclick="addResult('D')">D</button>
+          <button onclick="addResult('L')">L</button>
+        </div>
+        <div class="results-display" id="resultsDisplay"></div>
+        <button class="btn-secondary" onclick="clearResults()" style="margin-bottom:16px;">Limpiar</button>
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Goles anotados (últimos 5)</label>
+            <input id="goalsFor" type="number" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>Goles recibidos (últimos 5)</label>
+            <input id="goalsAgainst" type="number" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>Partidos con BTTS</label>
+            <input id="btts" type="number" min="0" max="5" value="0">
+          </div>
+          <div class="form-group">
+            <label>Porterías a cero</label>
+            <input id="cleanSheets" type="number" min="0" max="5" value="0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Jugadores -->
+      <div class="card">
+        <div class="card-title"><i class="fas fa-users"></i> Jugadores clave</div>
+        <div id="playersList"></div>
+        <button class="btn-secondary" onclick="addPlayer()" style="margin-top:8px;">+ Añadir jugador</button>
+      </div>
+
+      <!-- H2H -->
+      <div class="card">
+        <div class="card-title"><i class="fas fa-handshake"></i> Historial H2H</div>
+        <div class="form-group">
+          <label>Rival</label>
+          <select id="h2hRival"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Goles equipo</label>
+            <input id="h2hGoalsA" type="number" min="0" value="0">
+          </div>
+          <div class="form-group">
+            <label>Goles rival</label>
+            <input id="h2hGoalsB" type="number" min="0" value="0">
+          </div>
+        </div>
+        <button class="btn-secondary" onclick="addH2H()" style="margin-top:8px;">+ Añadir partido H2H</button>
+        <div id="h2hList" style="margin-top:12px;"></div>
+      </div>
+
+      <button class="btn-primary" onclick="saveTeam()">💾 Guardar contexto</button>
+      <div id="message"></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let teams = {};
+    let currentResults = [];
+    let currentPlayers = [];
+    let currentH2H = [];
+
+    async function loadTeams() {
+      try {
+        const res = await fetch('/teams');
+        teams = await res.json();
+        
+        const selects = ['team', 'h2hRival'];
+        selects.forEach(id => {
+          const sel = $(id);
+          sel.innerHTML = '<option value="">Seleccionar...</option>';
+          Object.entries(teams).forEach(([key, t]) => {
+            sel.add(new Option(t.display_name || key, key));
+          });
+        });
+      } catch (e) {
+        console.error('Error cargando equipos:', e);
+      }
+    }
+
+    async function loadTeamData() {
+      const team = $('team').value;
+      if (!team) {
+        $('editor').classList.add('hidden');
+        return;
+      }
+
+      // Reset
+      currentResults = [];
+      currentPlayers = [];
+      currentH2H = [];
+      $('resultsDisplay').innerHTML = '';
+      $('playersList').innerHTML = '';
+      $('h2hList').innerHTML = '';
+      $('goalsFor').value = 0;
+      $('goalsAgainst').value = 0;
+      $('btts').value = 0;
+      $('cleanSheets').value = 0;
+      $('message').className = 'hidden';
+
+      // Cargar datos existentes si hay
+      try {
+        const res = await fetch(`/context/${team}`);
+        if (res.status === 200) {
+          const data = await res.json();
+          
+          if (data.form) {
+            currentResults = data.form.last_results || [];
+            renderResults();
+            $('goalsFor').value = data.form.goals_scored || 0;
+            $('goalsAgainst').value = data.form.goals_conceded || 0;
+            $('btts').value = data.form.btts_count || 0;
+            $('cleanSheets').value = data.form.clean_sheets || 0;
+          }
+          
+          if (data.key_players) {
+            data.key_players.forEach(p => addPlayer(p));
+          }
+        }
+      } catch (e) {
+        // No hay datos previos
+      }
+
+      $('editor').classList.remove('hidden');
+    }
+
+    function addResult(r) {
+      if (currentResults.length >= 5) currentResults.shift();
+      currentResults.push(r);
+      renderResults();
+    }
+
+    function clearResults() {
+      currentResults = [];
+      renderResults();
+    }
+
+    function renderResults() {
+      $('resultsDisplay').innerHTML = currentResults.map(r => 
+        `<span class="result-tag ${r}">${r}</span>`
+      ).join('');
+    }
+
+    function addPlayer(player = {name:'', status:'available', impact:1.0}) {
+      const div = document.createElement('div');
+      div.className = 'player-row';
+      div.innerHTML = `
+        <input type="text" placeholder="Nombre del jugador" value="${player.name}" class="p-name">
+        <select class="p-status">
+          <option value="available" ${player.status==='available'?'selected':''}>Disponible</option>
+          <option value="doubtful" ${player.status==='doubtful'?'selected':''}>Dudoso</option>
+          <option value="injured" ${player.status==='injured'?'selected':''}>Lesionado</option>
+          <option value="suspended" ${player.status==='suspended'?'selected':''}>Suspendido</option>
+        </select>
+        <input type="number" min="0" max="1" step="0.1" value="${player.impact}" class="p-impact" placeholder="Impacto">
+        <button class="btn-icon" onclick="this.parentElement.remove()">×</button>
+      `;
+      $('playersList').appendChild(div);
+    }
+
+    function addH2H() {
+      const rival = $('h2hRival').value;
+      const goalsA = parseInt($('h2hGoalsA').value) || 0;
+      const goalsB = parseInt($('h2hGoalsB').value) || 0;
+      
+      if (!rival) return;
+      if (rival === $('team').value) {
+        showMsg('No puedes seleccionar el mismo equipo como rival', 'error');
+        return;
+      }
+      
+      currentH2H.push({ rival, goalsA, goalsB });
+      renderH2H();
+      
+      $('h2hRival').value = '';
+      $('h2hGoalsA').value = 0;
+      $('h2hGoalsB').value = 0;
+    }
+
+    function renderH2H() {
+      $('h2hList').innerHTML = currentH2H.map((h, i) => `
+        <div class="h2h-row">
+          <span>${teams[h.rival]?.display_name || h.rival}</span>
+          <input type="number" value="${h.goalsA}" min="0" onchange="currentH2H[${i}].goalsA=this.value">
+          <input type="number" value="${h.goalsB}" min="0" onchange="currentH2H[${i}].goalsB=this.value">
+          <button class="btn-icon" onclick="currentH2H.splice(${i},1);renderH2H();">×</button>
+        </div>
+      `).join('');
+    }
+
+    async function saveTeam() {
+      const team = $('team').value;
+      if (!team) return;
+
+      const players = [];
+      document.querySelectorAll('.player-row').forEach(row => {
+        const name = row.querySelector('.p-name').value;
+        if (name) {
+          players.push({
+            name,
+            status: row.querySelector('.p-status').value,
+            impact: parseFloat(row.querySelector('.p-impact').value) || 1.0,
+          });
+        }
+      });
+
+      const payload = {
+        team_name: team,
+        form: {
+          last_results: currentResults,
+          goals_scored: parseInt($('goalsFor').value) || 0,
+          goals_conceded: parseInt($('goalsAgainst').value) || 0,
+          btts_count: parseInt($('btts').value) || 0,
+          clean_sheets: parseInt($('cleanSheets').value) || 0,
+        },
+        key_players: players,
+      };
+
+      try {
+        const res = await fetch(`/context/${team}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload),
+        });
+        
+        if (res.ok) {
+          showMsg('✅ Contexto guardado correctamente', 'success');
+        } else {
+          showMsg('❌ Error guardando contexto', 'error');
+        }
+      } catch (e) {
+        showMsg('❌ Error de conexión', 'error');
+      }
+
+      // Guardar H2H
+      for (const h of currentH2H) {
+        try {
+          await fetch('/h2h', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              team_a: team,
+              team_b: h.rival,
+              goals_a: parseInt(h.goalsA),
+              goals_b: parseInt(h.goalsB),
+              date: new Date().toISOString().split('T')[0],
+            }),
+          });
+        } catch (e) {
+          console.error('Error guardando H2H:', e);
+        }
+      }
+    }
+
+    function showMsg(msg, type) {
+      const el = $('message');
+      el.textContent = msg;
+      el.className = type;
+      setTimeout(() => el.className = 'hidden', 3000);
+    }
+
+    loadTeams();
+  </script>
+</body>
+</html>
