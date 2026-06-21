@@ -105,19 +105,35 @@ def get_team(name: str) -> TeamRating:
 
 TRAINED_RATINGS_PATH = Path(__file__).resolve().parent.parent / "data" / "trained_ratings.json"
 
+_RATINGS_METADATA: dict = {}
+
 
 def load_trained_ratings() -> None:
+    """Load trained ratings from disk. Supports both legacy flat-dict and new metadata-wrapped format."""
+    global _RATINGS_METADATA
     if not TRAINED_RATINGS_PATH.exists():
         return
     try:
         with open(TRAINED_RATINGS_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
-        for team_name, rating_data in data.items():
+
+        # New format: {"trained_at": ..., "gamma": ..., "teams": {...}}
+        # Legacy format: {"TeamName": {"attack": x, "defense": x}, ...}
+        if "teams" in data and isinstance(data["teams"], dict):
+            teams_data = data["teams"]
+            _RATINGS_METADATA = {
+                "trained_at": data.get("trained_at"),
+                "gamma": data.get("gamma"),
+            }
+        else:
+            teams_data = data
+            _RATINGS_METADATA = {}
+
+        for team_name, rating_data in teams_data.items():
             norm_name = normalize_team_name(team_name)
             existing = TEAMS.get(norm_name)
             flag = existing.flag if existing else "UN"
             host = existing.host if existing else False
-            
             TEAMS[norm_name] = TeamRating(
                 attack=float(rating_data["attack"]),
                 defense=float(rating_data["defense"]),
@@ -128,15 +144,30 @@ def load_trained_ratings() -> None:
         print(f"Warning: Failed to load trained ratings from {TRAINED_RATINGS_PATH}: {exc}")
 
 
-def save_trained_ratings(trained_teams: dict[str, dict[str, float]]) -> None:
+def save_trained_ratings(
+    trained_teams: dict[str, dict[str, float]],
+    gamma: float | None = None,
+) -> None:
+    """Persist trained ratings with metadata (timestamp + gamma)."""
+    from datetime import date as _date
     try:
         TRAINED_RATINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        payload: dict = {
+            "trained_at": str(_date.today()),
+            "gamma": gamma,
+            "teams": trained_teams,
+        }
         with open(TRAINED_RATINGS_PATH, "w", encoding="utf-8") as f:
-            json.dump(trained_teams, f, indent=2, ensure_ascii=False)
+            json.dump(payload, f, indent=2, ensure_ascii=False)
         load_trained_ratings()
     except Exception as exc:
         print(f"Error: Failed to save trained ratings: {exc}")
         raise exc
+
+
+def get_ratings_metadata() -> dict:
+    """Return metadata about the currently loaded ratings (trained_at, gamma)."""
+    return _RATINGS_METADATA.copy()
 
 
 # Load saved ratings if they exist

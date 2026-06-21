@@ -114,6 +114,7 @@ def add_h2h_match(
     record.matches.append(
         {
             "date": match_date,
+            "home_team": team_a,   # who was actually the home side for this match
             "goals_a": goals_a,
             "goals_b": goals_b,
             "tournament": tournament,
@@ -140,12 +141,24 @@ def build_match_context(home_team: str, away_team: str) -> Optional[MatchContext
     h2h_btts_count = 0
 
     if h2h:
+        from mundial_betting.data import normalize_team_name
+
+        # Determine whether today's home_team corresponds to team_a or team_b in the
+        # stored H2HRecord. The key is sorted alphabetically so team_a may not be the
+        # side that was 'home' in any individual match — we only care about which slot
+        # maps to the team that is HOME today.
+        home_is_team_a = normalize_team_name(h2h.team_a) == normalize_team_name(home_team)
+
         for match in h2h.matches:
             h2h_total += 1
-            if match["goals_a"] > match["goals_b"]:
+            goals_home = match["goals_a"] if home_is_team_a else match["goals_b"]
+            goals_away = match["goals_b"] if home_is_team_a else match["goals_a"]
+
+            if goals_home > goals_away:
                 h2h_home_wins += 1
-            elif match["goals_b"] > match["goals_a"]:
+            elif goals_away > goals_home:
                 h2h_away_wins += 1
+
             if match["goals_a"] > 0 and match["goals_b"] > 0:
                 h2h_btts_count += 1
 

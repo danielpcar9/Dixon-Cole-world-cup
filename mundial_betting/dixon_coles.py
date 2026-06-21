@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 from mundial_betting.data import TEAMS, TeamRating, get_team, normalize_team_name
 from mundial_betting.models import MatchContext, MatchData, OddsFormat, OddsInput
 
-MAX_GOALS = 10
+MAX_GOALS = 15
 DEFAULT_RHO = -0.13
 DEFAULT_GAMMA = 1.15
 
@@ -34,6 +34,7 @@ class ContextAdjustments:
     h2h_boost_applied: bool
     btts_boost_applied: bool
     key_players_boost_applied: bool
+    clean_sheet_boost_applied: bool
 
 
 def poisson_pmf(goals: int, expected_goals: float) -> float:
@@ -113,7 +114,19 @@ def score_matrix(
                 * poisson_pmf(away_goals, xg.away)
             )
 
-    matrix /= matrix.sum()
+    total = float(matrix.sum())
+    if total <= 0:
+        raise ValueError(
+            f"Score matrix has zero total probability for xG=({xg.home:.3f}, {xg.away:.3f})"
+        )
+    if total < 0.95:
+        import logging
+        logging.warning(
+            "Score matrix truncation: sum=%.4f for xG=(%.3f, %.3f). "
+            "Increase MAX_GOALS if this occurs frequently.",
+            total, xg.home, xg.away,
+        )
+    matrix /= total
     return matrix, xg
 
 
@@ -131,6 +144,7 @@ def apply_context_adjustments(
         "h2h_boost_applied": False,
         "btts_boost_applied": False,
         "key_players_boost_applied": False,
+        "clean_sheet_boost_applied": False,
     }
 
     if ctx.h2h_total >= 3:
@@ -141,10 +155,19 @@ def apply_context_adjustments(
         flags["h2h_boost_applied"] = True
 
     if ctx.home_btts_streak >= 3 and ctx.away_btts_streak >= 3:
-        # BTTS streaks suggest weaker defensive setups, so increase the chance of both teams scoring.
+        # BTTS streaks suggest weaker defensive setups → increase xG for both.
         adj["home_defense"] *= 0.85
         adj["away_defense"] *= 0.85
         flags["btts_boost_applied"] = True
+
+    # Clean-sheet streaks signal a solid defence → harder for the opponent to score.
+    # home_defense divides away xG (higher = fewer away goals); away_defense divides home xG.
+    if ctx.home_clean_sheets_last5 >= 3:
+        adj["home_defense"] *= 1.15
+        flags["clean_sheet_boost_applied"] = True
+    if ctx.away_clean_sheets_last5 >= 3:
+        adj["away_defense"] *= 1.15
+        flags["clean_sheet_boost_applied"] = True
 
     if ctx.home_key_players_available < 1.0 or ctx.away_key_players_available < 1.0:
         adj["home_attack"] *= ctx.home_key_players_available
@@ -182,7 +205,19 @@ def _score_matrix_from_xg(xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals
                 * poisson_pmf(away_goals, xg.away)
             )
 
-    matrix /= matrix.sum()
+    total = float(matrix.sum())
+    if total <= 0:
+        raise ValueError(
+            f"Score matrix has zero total probability for xG=({xg.home:.3f}, {xg.away:.3f})"
+        )
+    if total < 0.95:
+        import logging
+        logging.warning(
+            "Score matrix truncation: sum=%.4f for xG=(%.3f, %.3f). "
+            "Increase MAX_GOALS if this occurs frequently.",
+            total, xg.home, xg.away,
+        )
+    matrix /= total
     return matrix
 
 
@@ -238,17 +273,31 @@ def remove_vig(*probabilities: float) -> list[float]:
     return [probability / total for probability in probabilities]
 
 
-def edge_report(model_probs: dict[str, float], odds: OddsInput, odds_format: OddsFormat) -> dict[str, dict[str, float | str]]:
-    output: dict[str, dict[str, float | str]] = {}
+def _to_decimal_odds(odds: float, odds_format: OddsFormat) -> float:
+    """Convert any odds format to decimal (European) odds."""
+    if odds_format == "decimal":
+        return odds
+    # American format
+    if odds > 0:
+        return odds / 100.0 + 1.0
+    return 100.0 / abs(odds) + 1.0
+
+
+def edge_report(
+    model_probs: dict[str, float],
+    odds: OddsInput,
+    odds_format: OddsFormat,
+) -> dict[str, dict[str, float | str | None]]:
+    output: dict[str, dict[str, float | str | None]] = {}
 
     if odds.home is not None and odds.draw is not None and odds.away is not None:
-        no_vig = remove_vig(
-            implied_probability(odds.home, odds_format),
-            implied_probability(odds.draw, odds_format),
-            implied_probability(odds.away, odds_format),
-        )
-        for market, market_prob in zip(("home", "draw", "away"), no_vig, strict=True):
-            output[market] = _edge_item(model_probs[market], market_prob)
+        raw = [odds.home, odds.draw, odds.away]
+        no_vig = remove_vig(*[implied_probability(o, odds_format) for o in raw])
+        decimals = [_to_decimal_odds(o, odds_format) for o in raw]
+        for market, market_prob, dec in zip(
+            ("home", "draw", "away"), no_vig, decimals, strict=True
+        ):
+            output[market] = _edge_item(model_probs[market], market_prob, dec)
 
     two_way_markets = [
         ("over_25", "under_25", odds.over_25, odds.under_25),
@@ -257,17 +306,26 @@ def edge_report(model_probs: dict[str, float], odds: OddsInput, odds_format: Odd
     for first, second, first_odds, second_odds in two_way_markets:
         if first_odds is None or second_odds is None:
             continue
-        first_market, second_market = remove_vig(
+        first_prob, second_prob = remove_vig(
             implied_probability(first_odds, odds_format),
             implied_probability(second_odds, odds_format),
         )
-        output[first] = _edge_item(model_probs[first], first_market)
-        output[second] = _edge_item(model_probs[second], second_market)
+        output[first]  = _edge_item(
+            model_probs[first],  first_prob,  _to_decimal_odds(first_odds,  odds_format)
+        )
+        output[second] = _edge_item(
+            model_probs[second], second_prob, _to_decimal_odds(second_odds, odds_format)
+        )
 
     return output
 
 
-def _edge_item(model_probability: float, market_probability: float) -> dict[str, float | str]:
+def _edge_item(
+    model_probability: float,
+    market_probability: float,
+    decimal_odds: float | None = None,
+) -> dict[str, float | str | None]:
+    """Compute edge and fractional Kelly for a single market."""
     edge = model_probability - market_probability
     if edge >= 0.04:
         pick = "BET"
@@ -275,10 +333,18 @@ def _edge_item(model_probability: float, market_probability: float) -> dict[str,
         pick = "FADE"
     else:
         pick = "SKIP"
+
+    kelly: float | None = None
+    if decimal_odds is not None and decimal_odds > 1.0:
+        b = decimal_odds - 1.0
+        k = (b * model_probability - (1.0 - model_probability)) / b
+        kelly = round(max(0.0, k), 4)  # negative Kelly = don't bet
+
     return {
         "model_probability": round(model_probability, 6),
         "market_probability_no_vig": round(market_probability, 6),
         "edge": round(edge, 6),
+        "kelly_fraction": kelly,
         "pick": pick,
     }
 
@@ -315,6 +381,7 @@ def predict_match(
                 "h2h_boost_applied": adjustments.h2h_boost_applied,
                 "btts_boost_applied": adjustments.btts_boost_applied,
                 "key_players_boost_applied": adjustments.key_players_boost_applied,
+                "clean_sheet_boost_applied": adjustments.clean_sheet_boost_applied,
             },
             "h2h_home_win_rate": round(context.h2h_home_win_rate(), 4) if context.h2h_total > 0 else None,
             "h2h_btts_rate": round(context.h2h_btts_rate(), 4) if context.h2h_total > 0 else None,
