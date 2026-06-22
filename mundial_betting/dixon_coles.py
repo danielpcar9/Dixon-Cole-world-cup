@@ -726,7 +726,7 @@ def train_ratings(
             {"type": "eq", "fun": lambda p: np.sum(p[:n_teams]) - n_teams},
             {"type": "eq", "fun": lambda p: np.sum(p[n_teams:2*n_teams]) - n_teams},
         ],
-        options={"maxiter": 100, "ftol": ftol, "disp": False},
+        options={"maxiter": 2000, "ftol": ftol, "disp": False},
     )
     
     # === FASE 2: Optimizar rho con warm-start de Fase 1 ===
@@ -748,11 +748,13 @@ def train_ratings(
             {"type": "eq", "fun": lambda p: np.sum(p[:n_teams]) - n_teams},
             {"type": "eq", "fun": lambda p: np.sum(p[n_teams:2*n_teams]) - n_teams},
         ],
-        options={"maxiter": 100, "ftol": ftol, "disp": False},
+        options={"maxiter": 2000, "ftol": ftol, "disp": False},
     )
     
     # Fallback: usar resultado de Fase 1 si Fase 2 no converge
     if not result2.success:
+        import logging
+        logging.warning("Phase 2 did not converge: %s — using Phase 1 result", result2.message)
         fitted = np.append(result1.x, rho_init)
         nll_final = result1.fun
     else:
