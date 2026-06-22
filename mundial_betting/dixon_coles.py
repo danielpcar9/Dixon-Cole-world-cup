@@ -530,7 +530,21 @@ def train_ratings(
     lambda_reg: float = 0.5,
     half_life_days: float = 730.0,
     reference_date: date | None = None,
+    initial_params: np.ndarray | None = None,
+    rho_bounds: tuple[float, float] = (-0.20, -0.05),
+    ftol: float = 1e-6,
 ) -> dict[str, object]:
+    """Entrena los ratings Dixon-Coles con soporte para warm-start y bounds configurables.
+    
+    Args:
+        matches: Lista de partidos para entrenar
+        lambda_reg: Regularización L2
+        half_life_days: Vida media para ponderación temporal
+        reference_date: Fecha de referencia para ponderación
+        initial_params: Parámetros iniciales opcionales (warm-start). Si None, usa defaults
+        rho_bounds: Tupla (min, max) para el parámetro rho. Default (-0.20, -0.05) según literatura
+        ftol: Tolerancia de convergencia. Default 1e-6 (suficiente para apuestas deportivas)
+    """
     teams = sorted(
         {normalize_team_name(match.home_team) for match in matches}
         | {normalize_team_name(match.away_team) for match in matches}
@@ -540,19 +554,26 @@ def train_ratings(
 
     team_indices = {team: index for index, team in enumerate(teams)}
     n_teams = len(teams)
-    initial_params = np.concatenate(
-        [
-            np.ones(n_teams),
-            np.ones(n_teams),
-            [1.15],
-            [-0.13],
-        ]
-    )
+    
+    # H2: WARM-START - Usar parámetros previos si se proporcionan
+    if initial_params is not None and len(initial_params) == 2 * n_teams + 2:
+        start_params = initial_params.copy()
+    else:
+        start_params = np.concatenate(
+            [
+                np.ones(n_teams),
+                np.ones(n_teams),
+                [1.15],
+                [-0.13],
+            ]
+        )
+    
+    # H1: BOUNDS DE RHO RELAJADOS - De (-0.12, -0.08) a (-0.20, -0.05)
     bounds = (
         [(0.05, 5.0)] * n_teams
         + [(0.05, 5.0)] * n_teams
         + [(0.5, 2.5)]
-        + [(-0.12, -0.08)]
+        + [rho_bounds]
     )
 
     constraints = [
@@ -562,14 +583,15 @@ def train_ratings(
             "fun": lambda params: np.sum(params[n_teams : 2 * n_teams]) - n_teams,
         },
     ]
+    # H3: FTOL CONFIGURABLE - Default 1e-6 en lugar de 1e-8
     result = minimize(
         negative_log_likelihood,
-        initial_params,
+        start_params,
         args=(matches, team_indices, lambda_reg, half_life_days, reference_date),
         method="SLSQP",
         bounds=bounds,
         constraints=constraints,
-        options={"maxiter": 200, "disp": False},
+        options={"maxiter": 200, "disp": False, "ftol": ftol},
     )
 
     if not result.success:
