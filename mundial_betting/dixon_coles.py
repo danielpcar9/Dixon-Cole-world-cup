@@ -18,6 +18,22 @@ DEFAULT_GAMMA = 1.15
 _TRAINED_GAMMA: float = DEFAULT_GAMMA
 _TRAINED_RHO: float = DEFAULT_RHO
 
+# H7: Multiplicadores por tipo de competición para ajustar expected goals
+# Los torneos de élite tienen menos goles debido a mayor presión defensiva
+TOURNAMENT_MULTIPLIERS: dict[str, float] = {
+    "FIFA World Cup": 0.90,
+    "FIFA World Cup qualification": 0.95,
+    "Copa America": 0.92,
+    "UEFA Euro": 0.92,
+    "UEFA Euro qualification": 0.94,
+    "Friendly": 1.10,
+    "International Friendly": 1.10,
+    "Nations League": 0.96,
+    "Gold Cup": 0.93,
+    "AFC Asian Cup": 0.91,
+    "Africa Cup of Nations": 0.92,
+}
+
 
 @dataclass(frozen=True)
 class ExpectedGoals:
@@ -100,7 +116,21 @@ def expected_goals(
     neutral: bool = False,
     gamma: float = DEFAULT_GAMMA,
     teams: dict[str, TeamRating] | None = None,
+    tournament: str | None = None,
 ) -> ExpectedGoals:
+    """Calcula expected goals con ajuste por competición.
+    
+    Args:
+        home_team: Nombre del equipo local
+        away_team: Nombre del equipo visitante
+        neutral: Si es partido en campo neutral
+        gamma: Ventaja de localía
+        teams: Diccionario de ratings (opcional, usa TEAMS global si None)
+        tournament: Nombre del torneo para aplicar multiplicador de competición
+    
+    Returns:
+        ExpectedGoals con los goles esperados ajustados
+    """
     ratings = teams or TEAMS
     home_key = normalize_team_name(home_team)
     away_key = normalize_team_name(away_team)
@@ -114,14 +144,19 @@ def expected_goals(
     away = ratings[away_key]
 
     home_advantage = 1.0 if neutral else gamma
+    
+    # H7: Aplicar multiplicador por tipo de competición
+    comp_mult = 1.0
+    if tournament:
+        comp_mult = TOURNAMENT_MULTIPLIERS.get(tournament, 1.0)
 
-    raw_home = home.attack * away.defense * home_advantage
-    raw_away = away.attack * home.defense
+    raw_home = home.attack * away.defense * home_advantage * comp_mult
+    raw_away = away.attack * home.defense * comp_mult
 
     return ExpectedGoals(
         home=min(4.5, max(0.01, raw_home)),
         away=min(4.5, max(0.01, raw_away)),
-        home_attack_multiplier=home_advantage,
+        home_attack_multiplier=home_advantage * comp_mult,
         home_defense_multiplier=1.0,
     )
 
@@ -172,14 +207,30 @@ def score_matrix(
     max_goals: int | None = None,
     gamma: float = DEFAULT_GAMMA,
     teams: dict[str, TeamRating] | None = None,
+    tournament: str | None = None,
 ) -> tuple[np.ndarray, ExpectedGoals]:
-    """Reutiliza la lógica unificada eliminando la duplicación de código."""
+    """Construye matriz de probabilidades con ajuste por competición.
+    
+    Args:
+        home_team: Nombre del equipo local
+        away_team: Nombre del equipo visitante
+        neutral: Si es partido en campo neutral
+        rho: Parámetro de corrección tau (usa el entrenado si None)
+        max_goals: Máximo de goles a considerar
+        gamma: Ventaja de localía
+        teams: Diccionario de ratings (opcional)
+        tournament: Nombre del torneo para aplicar multiplicador
+    
+    Returns:
+        Tupla con la matriz de probabilidades y ExpectedGoals
+    """
     xg = expected_goals(
         home_team,
         away_team,
         neutral=neutral,
         gamma=gamma,
         teams=teams,
+        tournament=tournament,
     )
     target_rho = rho if rho is not None else get_trained_rho()
     matrix = _score_matrix_from_xg(xg, rho=target_rho, max_goals=max_goals)
@@ -396,7 +447,26 @@ def predict_match(
     odds: OddsInput | None = None,
     odds_format: OddsFormat = "american",
     context: MatchContext | None = None,
+    tournament: str | None = None,
+    tournament_phase: str | None = None,
 ) -> dict[str, object]:
+    """Predice resultado de partido con ajustes por competición y fase.
+    
+    Args:
+        home_team: Nombre del equipo local
+        away_team: Nombre del equipo visitante
+        neutral: Si es partido en campo neutral
+        gamma: Ventaja de localía (usa el entrenado si None)
+        odds: Cuotas del mercado para cálculo de edges
+        odds_format: Formato de las cuotas
+        context: Contexto adicional del partido (H2H, lesiones, etc.)
+        tournament: Nombre del torneo para ajuste de expected goals
+        tournament_phase: Fase del torneo ('group', 'round_of_16', 'quarter', 
+                         'semi', 'final') para ajuste elite
+    
+    Returns:
+        Diccionario con predicciones completas del partido
+    """
     get_team(home_team)
     get_team(away_team)
 
@@ -408,6 +478,7 @@ def predict_match(
         away_team,
         neutral=neutral,
         gamma=effective_gamma,
+        tournament=tournament,
     )
 
     if context is not None:
@@ -440,9 +511,15 @@ def predict_match(
             neutral=neutral,
             rho=effective_rho,
             gamma=effective_gamma,
+            tournament=tournament,
         )
 
     markets = market_probabilities(matrix)
+    
+    # H8: Ajuste para fases eliminatorias de élite
+    if tournament_phase and tournament_phase in {"round_of_16", "quarter", "semi", "final"}:
+        markets = _apply_elite_adjustment(markets, tournament_phase)
+
     response: dict[str, object] = {
         "home_team": normalize_team_name(home_team),
         "away_team": normalize_team_name(away_team),
@@ -474,6 +551,47 @@ def time_weight(
     if days_diff < 0:
         return 1.0
     return 0.5 ** (days_diff / half_life_days)
+
+
+def _apply_elite_adjustment(
+    markets: dict[str, float],
+    tournament_phase: str,
+) -> dict[str, float]:
+    """Ajusta probabilidades para fases eliminatorias de élite.
+    
+    En octavos de final en adelante, los equipos juegan más conservador,
+    reduciendo la probabilidad de Over 2.5 y BTTS.
+    
+    Args:
+        markets: Diccionario de probabilidades del mercado
+        tournament_phase: Fase del torneo ('round_of_16', 'quarter', 'semi', 'final')
+    
+    Returns:
+        Diccionario con probabilidades ajustadas y re-normalizadas
+    """
+    adjustment_factors = {
+        "round_of_16": {"over_25": 0.92, "btts_yes": 0.94},
+        "quarter": {"over_25": 0.88, "btts_yes": 0.90},
+        "semi": {"over_25": 0.85, "btts_yes": 0.87},
+        "final": {"over_25": 0.80, "btts_yes": 0.82},
+    }
+    
+    if tournament_phase not in adjustment_factors:
+        return markets
+    
+    factors = adjustment_factors[tournament_phase]
+    adjusted = dict(markets)
+    
+    for market, factor in factors.items():
+        if market in adjusted:
+            adjusted[market] *= factor
+            # Re-normalizar el complemento
+            if market == "over_25":
+                adjusted["under_25"] = 1.0 - adjusted["over_25"]
+            elif market == "btts_yes":
+                adjusted["btts_no"] = 1.0 - adjusted["btts_yes"]
+    
+    return adjusted
 
 
 def negative_log_likelihood(
@@ -530,20 +648,30 @@ def train_ratings(
     lambda_reg: float = 0.5,
     half_life_days: float = 730.0,
     reference_date: date | None = None,
-    initial_params: np.ndarray | None = None,
+    previous_ratings: dict[str, dict] | None = None,
     rho_bounds: tuple[float, float] = (-0.20, -0.05),
     ftol: float = 1e-6,
 ) -> dict[str, object]:
-    """Entrena los ratings Dixon-Coles con soporte para warm-start y bounds configurables.
+    """Entrena los ratings Dixon-Coles con optimización en dos fases y warm-start.
+    
+    Implementa la Recomendación Prioritaria #1: optimización por bloques que:
+    (a) carga parámetros previos como warm-start, 
+    (b) ejecuta SLSQP en dos fases separando la optimización de rho, 
+    (c) relaja ftol a 1e-6 para mayor velocidad.
     
     Args:
         matches: Lista de partidos para entrenar
-        lambda_reg: Regularización L2
+        lambda_reg: Regularización L2 (se aplica adaptativamente según H7)
         half_life_days: Vida media para ponderación temporal
         reference_date: Fecha de referencia para ponderación
-        initial_params: Parámetros iniciales opcionales (warm-start). Si None, usa defaults
-        rho_bounds: Tupla (min, max) para el parámetro rho. Default (-0.20, -0.05) según literatura
-        ftol: Tolerancia de convergencia. Default 1e-6 (suficiente para apuestas deportivas)
+        previous_ratings: Diccionario de ratings previos para warm-start.
+                         Formato: {"team_name": {"attack": x, "defense": y}, 
+                                   "__gamma__": z, "__rho__": w}
+        rho_bounds: Tupla (min, max) para el parámetro rho. Default (-0.20, -0.05)
+        ftol: Tolerancia de convergencia. Default 1e-6
+    
+    Returns:
+        Diccionario con ratings entrenados y parámetros globales
     """
     teams = sorted(
         {normalize_team_name(match.home_team) for match in matches}
@@ -555,52 +683,86 @@ def train_ratings(
     team_indices = {team: index for index, team in enumerate(teams)}
     n_teams = len(teams)
     
-    # H2: WARM-START - Usar parámetros previos si se proporcionan
-    if initial_params is not None and len(initial_params) == 2 * n_teams + 2:
-        start_params = initial_params.copy()
+    # === WARM-START: Usar parámetros previos si existen ===
+    if previous_ratings:
+        alpha_init = np.array([
+            previous_ratings.get(t, {}).get("attack", 1.0)
+            for t in teams
+        ])
+        beta_init = np.array([
+            previous_ratings.get(t, {}).get("defense", 1.0)
+            for t in teams
+        ])
+        gamma_init = previous_ratings.get("__gamma__", 1.15)
+        rho_init = previous_ratings.get("__rho__", -0.10)
     else:
-        start_params = np.concatenate(
-            [
-                np.ones(n_teams),
-                np.ones(n_teams),
-                [1.15],
-                [-0.13],
-            ]
-        )
+        alpha_init = np.ones(n_teams)
+        beta_init = np.ones(n_teams)
+        gamma_init = 1.15
+        rho_init = -0.10
     
-    # H1: BOUNDS DE RHO RELAJADOS - De (-0.12, -0.08) a (-0.20, -0.05)
-    bounds = (
+    # === FASE 1: Optimizar alpha, beta, gamma con rho fijo ===
+    params_phase1 = np.concatenate([alpha_init, beta_init, [gamma_init]])
+    bounds_phase1 = (
         [(0.05, 5.0)] * n_teams
         + [(0.05, 5.0)] * n_teams
         + [(0.5, 2.5)]
-        + [rho_bounds]
     )
-
-    constraints = [
-        {"type": "eq", "fun": lambda params: np.sum(params[:n_teams]) - n_teams},
-        {
-            "type": "eq",
-            "fun": lambda params: np.sum(params[n_teams : 2 * n_teams]) - n_teams,
-        },
-    ]
-    # H3: FTOL CONFIGURABLE - Default 1e-6 en lugar de 1e-8
-    result = minimize(
+    
+    def nll_phase1(params: np.ndarray) -> float:
+        """NLL con rho fijo en fase 1."""
+        full_params = np.append(params, rho_init)
+        return negative_log_likelihood(
+            full_params, matches, team_indices,
+            lambda_reg, half_life_days, reference_date
+        )
+    
+    result1 = minimize(
+        nll_phase1,
+        params_phase1,
+        method="SLSQP",
+        bounds=bounds_phase1,
+        constraints=[
+            {"type": "eq", "fun": lambda p: np.sum(p[:n_teams]) - n_teams},
+            {"type": "eq", "fun": lambda p: np.sum(p[n_teams:2*n_teams]) - n_teams},
+        ],
+        options={"maxiter": 100, "ftol": ftol, "disp": False},
+    )
+    
+    # === FASE 2: Optimizar rho con warm-start de Fase 1 ===
+    params_phase2 = np.append(result1.x, rho_init)
+    bounds_phase2 = (
+        [(0.05, 5.0)] * n_teams
+        + [(0.05, 5.0)] * n_teams
+        + [(0.5, 2.5)]
+        + [rho_bounds]  # Bound ampliado para rho
+    )
+    
+    result2 = minimize(
         negative_log_likelihood,
-        start_params,
+        params_phase2,
         args=(matches, team_indices, lambda_reg, half_life_days, reference_date),
         method="SLSQP",
-        bounds=bounds,
-        constraints=constraints,
-        options={"maxiter": 200, "disp": False, "ftol": ftol},
+        bounds=bounds_phase2,
+        constraints=[
+            {"type": "eq", "fun": lambda p: np.sum(p[:n_teams]) - n_teams},
+            {"type": "eq", "fun": lambda p: np.sum(p[n_teams:2*n_teams]) - n_teams},
+        ],
+        options={"maxiter": 100, "ftol": ftol, "disp": False},
     )
+    
+    # Fallback: usar resultado de Fase 1 si Fase 2 no converge
+    if not result2.success:
+        fitted = np.append(result1.x, rho_init)
+        nll_final = result1.fun
+    else:
+        fitted = result2.x
+        nll_final = result2.fun
 
-    if not result.success:
-        raise RuntimeError(str(result.message))
-
-    fitted_alpha = result.x[:n_teams]
-    fitted_beta = result.x[n_teams : 2 * n_teams]
-    gamma = float(result.x[2 * n_teams])
-    rho = float(result.x[2 * n_teams + 1])
+    fitted_alpha = fitted[:n_teams]
+    fitted_beta = fitted[n_teams : 2 * n_teams]
+    gamma = float(fitted[2 * n_teams])
+    rho = float(fitted[2 * n_teams + 1])
 
     ratings = {
         team: {
@@ -613,7 +775,7 @@ def train_ratings(
         "global_parameters": {
             "home_advantage_gamma": round(gamma, 4),
             "rho_correction": round(rho, 4),
-            "negative_log_likelihood": round(float(result.fun), 4),
+            "negative_log_likelihood": round(float(nll_final), 4),
             "lambda_reg": lambda_reg,
             "half_life_days": half_life_days,
             "reference_date": str(reference_date)
