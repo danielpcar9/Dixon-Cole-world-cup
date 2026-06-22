@@ -10,8 +10,9 @@ def load_and_filter_matches():
     # 2. Convertir fecha y filtrar desde 2010
     df_raw["date"] = pd.to_datetime(df_raw["date"])
     df_filtrado = df_raw[df_raw["date"] >= "2010-01-01"].copy()
+    descartados_pre2010 = total_inicial - len(df_filtrado)
 
-    # 3. Limpiar NaN en los marcadores sacando la diferencia real
+    # 3. Limpiar NaN en los marcadores
     total_antes_nan = len(df_filtrado)
     df_clean = df_filtrado.dropna(subset=["home_score", "away_score"]).copy()
     eliminados_nan = total_antes_nan - len(df_clean)
@@ -24,13 +25,15 @@ def load_and_filter_matches():
     # Creamos la columna string de fecha para el JSON
     df_clean["date_str"] = df_clean["date"].dt.strftime("%Y-%m-%d")
 
+    print(f"📊 Total partidos en CSV original: {total_inicial}")
+    print(f"📉 Descartados (< 2010): {descartados_pre2010}")
     print(f"📊 Total partidos desde 2010: {len(df_clean)}")
     print(
         f"📅 Rango: {df_clean['date'].min().date()} hasta {df_clean['date'].max().date()}"
     )
-    print(f"⚠️ Partidos eliminados por NaN en este rango: {eliminados_nan}")
+    print(f"⚠️ Partidos eliminados por NaN: {eliminados_nan}")
 
-    # 5. Mapeo ultra rápido a formato diccionario usando Pandas
+    # 5. Mapeo a formato diccionario
     matches = [
         {
             "date": row["date_str"],
@@ -44,7 +47,7 @@ def load_and_filter_matches():
         for row in df_clean.to_dict(orient="records")
     ]
 
-    # 6. Guardar persistencia de los partidos muestra
+    # 6. Guardar persistencia
     output_path = "mundial_betting/sample_matches.json"
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(matches, f, ensure_ascii=False, indent=2)
