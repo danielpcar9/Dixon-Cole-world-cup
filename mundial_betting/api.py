@@ -4,11 +4,12 @@ from typing import List, Optional
 from types import SimpleNamespace
 from datetime import date
 
+# CORS para que el frontend HTML pueda hacer fetch
+from fastapi.middleware.cors import CORSMiddleware
+
 # Imports desde la capa de datos
 from mundial_betting.data import (
     TEAMS,
-    TeamRating,
-    get_team,
     normalize_team_name,
     save_trained_ratings,
     load_trained_model,
@@ -19,17 +20,35 @@ from mundial_betting.dixon_coles import (
     predict_match,
     set_trained_gamma,
     set_trained_rho,
+    get_trained_gamma,
+    get_trained_rho,
     train_ratings,
 )
 
-app = FastAPI(title="Mundial Betting API", version="1.1.0")
+# Import condicional de contexto (puede no existir en todos los entornos)
+try:
+    from mundial_betting.context_store import get_context_for_teams
+
+    CONTEXT_AVAILABLE = True
+except ImportError:
+    CONTEXT_AVAILABLE = False
+
+app = FastAPI(title="Mundial Betting API", version="2.0.0")
+
+# FIX: CORS habilitado para el frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # --- Esquemas de Validación Pydantic ---
 class Odds(BaseModel):
-    home: float
-    draw: float
-    away: float
+    home: Optional[float] = None
+    draw: Optional[float] = None
+    away: Optional[float] = None
     over_25: Optional[float] = None
     under_25: Optional[float] = None
     btts_yes: Optional[float] = None
@@ -41,7 +60,7 @@ class PredictRequest(BaseModel):
     away_team: str
     neutral: bool = False
     odds: Optional[Odds] = None
-    odds_format: str = "decimal"
+    odds_format: str = "american"
 
 
 class MatchData(BaseModel):
@@ -51,14 +70,14 @@ class MatchData(BaseModel):
     away_score: int
     is_neutral: bool = False
     weight: float = 1.0
-    match_date: date  # CORRECCIÓN: Autocasteo de Pydantic de str -> date
+    match_date: date
 
 
 class TrainRequest(BaseModel):
     matches: List[MatchData]
     lambda_reg: float = 0.5
     half_life_days: int = 730
-    reference_date: Optional[date] = None  # CORRECCIÓN: Autocasteo de str -> date
+    reference_date: Optional[date] = None
 
 
 # --- Inicialización Automática ---
@@ -70,9 +89,30 @@ if saved_model:
 
 
 # --- Endpoints ---
+
+
 @app.get("/")
 def read_root():
-    return {"status": "online", "teams_loaded": len(TEAMS)}
+    return {
+        "status": "online",
+        "teams_loaded": len(TEAMS),
+        "gamma": get_trained_gamma(),
+        "rho": get_trained_rho(),
+    }
+
+
+@app.get("/teams")
+def get_teams():
+    if not TEAMS:
+        raise HTTPException(status_code=503, detail="Modelo no cargado")
+    return {
+        name: {
+            "display_name": name,
+            "attack": round(stats.attack, 4),
+            "defense": round(stats.defense, 4),
+        }
+        for name, stats in TEAMS.items()
+    }
 
 
 @app.post("/predict")
@@ -83,6 +123,30 @@ def predict(payload: PredictRequest):
             away_team=payload.away_team,
             neutral=payload.neutral,
             odds=payload.odds.model_dump() if payload.odds else None,
+            odds_format=payload.odds_format,  # type: ignore
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/predict-auto-context")
+def predict_auto_context(payload: PredictRequest):
+    try:
+        home_norm = normalize_team_name(payload.home_team)
+        away_norm = normalize_team_name(payload.away_team)
+
+        context = None
+        if CONTEXT_AVAILABLE:
+            context = get_context_for_teams(home_norm, away_norm)
+
+        result = predict_match(
+            home_team=payload.home_team,
+            away_team=payload.away_team,
+            neutral=payload.neutral,
+            odds=payload.odds.model_dump() if payload.odds else None,
+            odds_format=payload.odds_format,  # type: ignore
+            context=context,
         )
         return result
     except ValueError as exc:
@@ -96,15 +160,11 @@ def train(payload: TrainRequest) -> dict:
             SimpleNamespace(
                 home_team=m.home_team,
                 away_team=m.away_team,
-                home_score=m.home_score,
-                away_score=m.away_score,
                 home_goals=m.home_score,
                 away_goals=m.away_score,
                 is_neutral=m.is_neutral,
-                neutral=m.is_neutral,
                 weight=m.weight,
                 match_date=m.match_date,
-                date=m.match_date,
             )
             for m in payload.matches
         ]
@@ -127,3 +187,14 @@ def train(payload: TrainRequest) -> dict:
         return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "teams_loaded": len(TEAMS),
+        "gamma": get_trained_gamma(),
+        "rho": get_trained_rho(),
+        "context_available": CONTEXT_AVAILABLE,
+    }
