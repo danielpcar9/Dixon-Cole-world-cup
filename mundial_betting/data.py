@@ -5,13 +5,12 @@ from pydantic import BaseModel
 MODEL_PATH = "data/trained_model.json"
 
 
-# FIX M1: Modelo Pydantic para mantener consistencia de tipos
 class TeamRating(BaseModel):
     attack: float
     defense: float
 
 
-# FIX M1: Estado global con tipo unificado y consistente
+# Estado global — nunca reasignar esta variable, solo mutarla
 TEAMS: dict[str, TeamRating] = {}
 
 
@@ -28,17 +27,14 @@ def get_team(name: str) -> TeamRating | None:
 
 def save_trained_ratings(teams_dict: dict, gamma: float, rho: float) -> None:
     """Guarda los ratings de los equipos, gamma y rho en un archivo JSON físico."""
-    global TEAMS
-    # FIX M1: Convertir dicts planos a TeamRating para consistencia en memoria
-    TEAMS = {
-        name: TeamRating(**stats) if isinstance(stats, dict) else stats
-        for name, stats in teams_dict.items()
-    }
+    # FIX M1: Mutar TEAMS en lugar de reasignar para que todas las importaciones vean el cambio
+    TEAMS.clear()
+    for name, stats in teams_dict.items():
+        TEAMS[name] = TeamRating(**stats) if isinstance(stats, dict) else stats
 
     # Asegurar que el directorio data/ exista
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
 
-    # Guardar como dicts planos para serialización JSON
     payload = {
         "global_parameters": {"home_advantage_gamma": gamma, "rho_correction": rho},
         "teams": teams_dict,
@@ -51,7 +47,6 @@ def save_trained_ratings(teams_dict: dict, gamma: float, rho: float) -> None:
 
 def load_trained_model() -> dict:
     """Carga el archivo JSON si existe para inicializar los parámetros del sistema."""
-    global TEAMS
     if not os.path.exists(MODEL_PATH):
         print(
             "ℹ️ [Persistencia] No se encontró un modelo previo. Usando valores vacíos/por defecto."
@@ -62,12 +57,12 @@ def load_trained_model() -> dict:
         with open(MODEL_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # FIX M1: Convertir dicts cargados a TeamRating para consistencia
+        # FIX M1: Mutar TEAMS en lugar de reasignar
         teams_raw = data.get("teams", {})
-        TEAMS = {
-            name: TeamRating(**stats) if isinstance(stats, dict) else stats
-            for name, stats in teams_raw.items()
-        }
+        TEAMS.clear()
+        for name, stats in teams_raw.items():
+            TEAMS[name] = TeamRating(**stats) if isinstance(stats, dict) else stats
+
         print(
             f"🎯 [Persistencia] Modelo cargado con éxito. {len(TEAMS)} equipos listos."
         )

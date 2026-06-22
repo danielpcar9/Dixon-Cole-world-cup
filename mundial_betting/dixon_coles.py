@@ -77,7 +77,6 @@ def tau_correction(
     return min(2.0, max(0.01, correction))
 
 
-# FIX M3: MAX_GOALS dinámico basado en xG para capturar >99.9% de la masa probabilística
 def _dynamic_max_goals(xg_home: float, xg_away: float, min_goals: int = 15) -> int:
     from scipy.stats import poisson
 
@@ -94,7 +93,6 @@ def _dynamic_max_goals(xg_home: float, xg_away: float, min_goals: int = 15) -> i
     return max(max_h, max_a)
 
 
-# FIX M2: Validación de equipos antes de acceder a ratings
 def expected_goals(
     home_team: str,
     away_team: str,
@@ -121,8 +119,8 @@ def expected_goals(
     raw_away = away.attack * home.defense
 
     return ExpectedGoals(
-        home=min(4.5, max(0.01, raw_home)),  # ← mismo rango que entrenamiento
-        away=min(4.5, max(0.01, raw_away)),  # ← mismo rango que entrenamiento
+        home=min(4.5, max(0.01, raw_home)),
+        away=min(4.5, max(0.01, raw_away)),
         home_attack_multiplier=home_advantage,
         home_defense_multiplier=1.0,
     )
@@ -132,7 +130,6 @@ def _score_matrix_from_xg(
     xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals: int | None = None
 ) -> np.ndarray:
     """Construye matriz de probabilidades a partir de expected goals ya ajustados."""
-    # FIX M3: Usar max_goals dinámico si no se especifica explícitamente
     effective_max = (
         max_goals if max_goals is not None else _dynamic_max_goals(xg.home, xg.away)
     )
@@ -254,12 +251,11 @@ def market_probabilities(matrix: np.ndarray) -> dict[str, float]:
     draw = float(np.trace(matrix))
     away_win = float(np.triu(matrix, 1).sum())
 
-    # Generar rejilla de índices para vectorizar Over/Under 2.5
     n_rows, n_cols = matrix.shape
     r, c = np.indices((n_rows, n_cols))
 
     over_25 = float(matrix[r + c > 2.5].sum())
-    btts_yes = float(matrix[1:, 1:].sum())  # Ambos marcan = Filas >= 1 y Columnas >= 1
+    btts_yes = float(matrix[1:, 1:].sum())
 
     return {
         "home": home_win,
@@ -312,15 +308,29 @@ def _to_decimal_odds(odds: float, odds_format: OddsFormat) -> float:
     return 100.0 / abs(odds) + 1.0
 
 
+# FIX: edge_report ahora acepta OddsInput o dict
 def edge_report(
     model_probs: dict[str, float],
-    odds: OddsInput,
+    odds,
     odds_format: OddsFormat,
 ) -> dict[str, dict[str, float | str | None]]:
+    """Acepta odds como OddsInput, dict o SimpleNamespace para compatibilidad."""
+    # Normalizar a dict
+    if hasattr(odds, "model_dump"):
+        odds_dict = odds.model_dump()
+    elif hasattr(odds, "__dict__"):
+        odds_dict = odds.__dict__
+    else:
+        odds_dict = odds  # ya es dict
+
     output: dict[str, dict[str, float | str | None]] = {}
 
-    if odds.home is not None and odds.draw is not None and odds.away is not None:
-        raw = [odds.home, odds.draw, odds.away]
+    if (
+        odds_dict.get("home") is not None
+        and odds_dict.get("draw") is not None
+        and odds_dict.get("away") is not None
+    ):
+        raw = [odds_dict["home"], odds_dict["draw"], odds_dict["away"]]
         no_vig = remove_vig(*[implied_probability(o, odds_format) for o in raw])
         decimals = [_to_decimal_odds(o, odds_format) for o in raw]
         for market, market_prob, dec in zip(
@@ -329,8 +339,8 @@ def edge_report(
             output[market] = _edge_item(model_probs[market], market_prob, dec)
 
     two_way_markets = [
-        ("over_25", "under_25", odds.over_25, odds.under_25),
-        ("btts_yes", "btts_no", odds.btts_yes, odds.btts_no),
+        ("over_25", "under_25", odds_dict.get("over_25"), odds_dict.get("under_25")),
+        ("btts_yes", "btts_no", odds_dict.get("btts_yes"), odds_dict.get("btts_no")),
     ]
     for first, second, first_odds, second_odds in two_way_markets:
         if first_odds is None or second_odds is None:
@@ -391,7 +401,7 @@ def predict_match(
     get_team(away_team)
 
     effective_gamma = gamma if gamma is not None else get_trained_gamma()
-    effective_rho = get_trained_rho()  # 🎯 SOLUCIÓN: Absorbe el Rho real calibrado
+    effective_rho = get_trained_rho()
 
     xg_base = expected_goals(
         home_team,
@@ -443,7 +453,6 @@ def predict_match(
             "home_defense_multiplier": xg.home_defense_multiplier,
         },
         "markets": {key: round(value, 6) for key, value in markets.items()},
-        # 🎯 DUPLICIDAD ESTRATÉGICA: Asegura compatibilidad con el bucle evaluador
         "probabilities": {key: round(value, 6) for key, value in markets.items()},
         "exact_scores": top_exact_scores(matrix),
     }
@@ -489,15 +498,11 @@ def negative_log_likelihood(
         away_idx = team_indices[normalize_team_name(match.away_team)]
         home_advantage = 1.0 if match.is_neutral else gamma
 
-        # 🎯 PARCHE DE CALIBRACIÓN: Acotamos lmbda y mu para evitar sobreajuste en selecciones extremas
         raw_lmbda = alpha[home_idx] * beta[away_idx] * home_advantage
         raw_mu = alpha[away_idx] * beta[home_idx]
 
         lmbda = min(4.5, max(0.01, raw_lmbda))
         mu = min(4.5, max(0.01, raw_mu))
-
-        # FIX m1: Eliminada verificación redundante lmbda <= 0 después de clipping
-        # (min 4.5, max 0.01 garantiza valores > 0)
 
         correction = tau_correction(match.home_goals, match.away_goals, lmbda, mu, rho)
         if correction <= 0:
@@ -506,7 +511,6 @@ def negative_log_likelihood(
         temporal_weight = time_weight(match.match_date, ref_date, half_life_days)
         effective_weight = match.weight * temporal_weight
 
-        # FIX m4: Agregar término log(factorial(k)) para likelihood Poisson completo
         log_likelihood += effective_weight * (
             log(correction)
             - lmbda
@@ -536,7 +540,6 @@ def train_ratings(
 
     team_indices = {team: index for index, team in enumerate(teams)}
     n_teams = len(teams)
-    # FIX m2: Consistencia entre DEFAULT_RHO (-0.13) y initial guess
     initial_params = np.concatenate(
         [
             np.ones(n_teams),
@@ -552,7 +555,6 @@ def train_ratings(
         + [(-0.25, 0.25)]
     )
 
-    # FIX m3: Constraint de identificabilidad completo (alphas y betas)
     constraints = [
         {"type": "eq", "fun": lambda params: np.sum(params[:n_teams]) - n_teams},
         {

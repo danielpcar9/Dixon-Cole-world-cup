@@ -4,10 +4,8 @@ from typing import List, Optional
 from types import SimpleNamespace
 from datetime import date
 
-# CORS para que el frontend HTML pueda hacer fetch
 from fastapi.middleware.cors import CORSMiddleware
 
-# Imports desde la capa de datos
 from mundial_betting.data import (
     TEAMS,
     normalize_team_name,
@@ -15,7 +13,6 @@ from mundial_betting.data import (
     load_trained_model,
 )
 
-# Imports desde el motor matemático
 from mundial_betting.dixon_coles import (
     predict_match,
     set_trained_gamma,
@@ -25,7 +22,6 @@ from mundial_betting.dixon_coles import (
     train_ratings,
 )
 
-# Import condicional de contexto (puede no existir en todos los entornos)
 try:
     from mundial_betting.context_store import get_context_for_teams
 
@@ -35,7 +31,6 @@ except ImportError:
 
 app = FastAPI(title="Mundial Betting API", version="2.0.0")
 
-# FIX: CORS habilitado para el frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,8 +38,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── FRONTEND PRIMERO (antes que los endpoints API) ──
+app.frontend("/", directory="frontend")
 
-# --- Esquemas de Validación Pydantic ---
+
 class Odds(BaseModel):
     home: Optional[float] = None
     draw: Optional[float] = None
@@ -80,7 +77,7 @@ class TrainRequest(BaseModel):
     reference_date: Optional[date] = None
 
 
-# --- Inicialización Automática ---
+# --- Inicialización ---
 saved_model = load_trained_model()
 if saved_model:
     global_params = saved_model.get("global_parameters", {})
@@ -88,11 +85,9 @@ if saved_model:
     set_trained_rho(global_params.get("rho_correction", -0.13))
 
 
-# --- Endpoints ---
-
-
-@app.get("/")
-def read_root():
+# --- Endpoints API ---
+@app.get("/status")
+def read_status():
     return {
         "status": "online",
         "teams_loaded": len(TEAMS),
