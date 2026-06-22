@@ -77,6 +77,24 @@ def tau_correction(
     return min(2.0, max(0.01, correction))
 
 
+# FIX M3: MAX_GOALS dinámico basado en xG para capturar >99.9% de la masa probabilística
+def _dynamic_max_goals(xg_home: float, xg_away: float, min_goals: int = 15) -> int:
+    from scipy.stats import poisson
+
+    max_h = min_goals
+    max_a = min_goals
+    for k in range(min_goals, 50):
+        if poisson.cdf(k, xg_home) > 0.9995:
+            max_h = k
+            break
+    for k in range(min_goals, 50):
+        if poisson.cdf(k, xg_away) > 0.9995:
+            max_a = k
+            break
+    return max(max_h, max_a)
+
+
+# FIX M2: Validación de equipos antes de acceder a ratings
 def expected_goals(
     home_team: str,
     away_team: str,
@@ -86,8 +104,16 @@ def expected_goals(
     teams: dict[str, TeamRating] | None = None,
 ) -> ExpectedGoals:
     ratings = teams or TEAMS
-    home = ratings[normalize_team_name(home_team)]
-    away = ratings[normalize_team_name(away_team)]
+    home_key = normalize_team_name(home_team)
+    away_key = normalize_team_name(away_team)
+
+    if home_key not in ratings:
+        raise ValueError(f"Equipo no encontrado: {home_team} (normalizado: {home_key})")
+    if away_key not in ratings:
+        raise ValueError(f"Equipo no encontrado: {away_team} (normalizado: {away_key})")
+
+    home = ratings[home_key]
+    away = ratings[away_key]
 
     home_advantage = 1.0 if neutral else gamma
 
@@ -103,13 +129,17 @@ def expected_goals(
 
 
 def _score_matrix_from_xg(
-    xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals: int = MAX_GOALS
+    xg: ExpectedGoals, rho: float = DEFAULT_RHO, max_goals: int | None = None
 ) -> np.ndarray:
     """Construye matriz de probabilidades a partir de expected goals ya ajustados."""
-    matrix = np.zeros((max_goals + 1, max_goals + 1), dtype=float)
+    # FIX M3: Usar max_goals dinámico si no se especifica explícitamente
+    effective_max = (
+        max_goals if max_goals is not None else _dynamic_max_goals(xg.home, xg.away)
+    )
+    matrix = np.zeros((effective_max + 1, effective_max + 1), dtype=float)
 
-    for home_goals in range(max_goals + 1):
-        for away_goals in range(max_goals + 1):
+    for home_goals in range(effective_max + 1):
+        for away_goals in range(effective_max + 1):
             correction = tau_correction(home_goals, away_goals, xg.home, xg.away, rho)
             matrix[home_goals, away_goals] = (
                 correction
@@ -142,7 +172,7 @@ def score_matrix(
     *,
     neutral: bool = False,
     rho: float | None = None,
-    max_goals: int = MAX_GOALS,
+    max_goals: int | None = None,
     gamma: float = DEFAULT_GAMMA,
     teams: dict[str, TeamRating] | None = None,
 ) -> tuple[np.ndarray, ExpectedGoals]:
@@ -466,8 +496,8 @@ def negative_log_likelihood(
         lmbda = min(4.5, max(0.01, raw_lmbda))
         mu = min(4.5, max(0.01, raw_mu))
 
-        if lmbda <= 0 or mu <= 0:
-            return 1e10
+        # FIX m1: Eliminada verificación redundante lmbda <= 0 después de clipping
+        # (min 4.5, max 0.01 garantiza valores > 0)
 
         correction = tau_correction(match.home_goals, match.away_goals, lmbda, mu, rho)
         if correction <= 0:
@@ -476,12 +506,15 @@ def negative_log_likelihood(
         temporal_weight = time_weight(match.match_date, ref_date, half_life_days)
         effective_weight = match.weight * temporal_weight
 
+        # FIX m4: Agregar término log(factorial(k)) para likelihood Poisson completo
         log_likelihood += effective_weight * (
             log(correction)
             - lmbda
             + match.home_goals * log(lmbda)
+            - log(factorial(match.home_goals))
             - mu
             + match.away_goals * log(mu)
+            - log(factorial(match.away_goals))
         )
 
     reg_term = lambda_reg * np.sum((alpha - 1.0) ** 2 + (beta - 1.0) ** 2)
@@ -503,12 +536,13 @@ def train_ratings(
 
     team_indices = {team: index for index, team in enumerate(teams)}
     n_teams = len(teams)
+    # FIX m2: Consistencia entre DEFAULT_RHO (-0.13) y initial guess
     initial_params = np.concatenate(
         [
             np.ones(n_teams),
             np.ones(n_teams),
             [1.15],
-            [-0.10],
+            [-0.13],
         ]
     )
     bounds = (
@@ -518,10 +552,14 @@ def train_ratings(
         + [(-0.25, 0.25)]
     )
 
-    constraints = {
-        "type": "eq",
-        "fun": lambda params: np.sum(params[:n_teams]) - n_teams,
-    }
+    # FIX m3: Constraint de identificabilidad completo (alphas y betas)
+    constraints = [
+        {"type": "eq", "fun": lambda params: np.sum(params[:n_teams]) - n_teams},
+        {
+            "type": "eq",
+            "fun": lambda params: np.sum(params[n_teams : 2 * n_teams]) - n_teams,
+        },
+    ]
     result = minimize(
         negative_log_likelihood,
         initial_params,

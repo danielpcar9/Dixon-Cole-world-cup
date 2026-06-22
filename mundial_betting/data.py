@@ -5,14 +5,14 @@ from pydantic import BaseModel
 MODEL_PATH = "data/trained_model.json"
 
 
-# Modelo Pydantic para mantener consistencia de tipos
+# FIX M1: Modelo Pydantic para mantener consistencia de tipos
 class TeamRating(BaseModel):
     attack: float
     defense: float
 
 
-# Estado global en memoria para los equipos
-TEAMS: dict[str, dict[str, float]] = {}
+# FIX M1: Estado global con tipo unificado y consistente
+TEAMS: dict[str, TeamRating] = {}
 
 
 def normalize_team_name(name: str) -> str:
@@ -20,7 +20,7 @@ def normalize_team_name(name: str) -> str:
     return " ".join(name.strip().split()).title()
 
 
-def get_team(name: str) -> dict[str, float] | None:
+def get_team(name: str) -> TeamRating | None:
     """Obtiene el rating de un equipo usando su nombre normalizado."""
     norm_name = normalize_team_name(name)
     return TEAMS.get(norm_name)
@@ -29,11 +29,16 @@ def get_team(name: str) -> dict[str, float] | None:
 def save_trained_ratings(teams_dict: dict, gamma: float, rho: float) -> None:
     """Guarda los ratings de los equipos, gamma y rho en un archivo JSON físico."""
     global TEAMS
-    TEAMS = teams_dict  # Actualiza la memoria RAM de inmediato
+    # FIX M1: Convertir dicts planos a TeamRating para consistencia en memoria
+    TEAMS = {
+        name: TeamRating(**stats) if isinstance(stats, dict) else stats
+        for name, stats in teams_dict.items()
+    }
 
     # Asegurar que el directorio data/ exista
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
 
+    # Guardar como dicts planos para serialización JSON
     payload = {
         "global_parameters": {"home_advantage_gamma": gamma, "rho_correction": rho},
         "teams": teams_dict,
@@ -57,7 +62,12 @@ def load_trained_model() -> dict:
         with open(MODEL_PATH, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        TEAMS = data.get("teams", {})
+        # FIX M1: Convertir dicts cargados a TeamRating para consistencia
+        teams_raw = data.get("teams", {})
+        TEAMS = {
+            name: TeamRating(**stats) if isinstance(stats, dict) else stats
+            for name, stats in teams_raw.items()
+        }
         print(
             f"🎯 [Persistencia] Modelo cargado con éxito. {len(TEAMS)} equipos listos."
         )

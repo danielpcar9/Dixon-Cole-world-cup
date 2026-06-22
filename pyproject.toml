@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.111",
     "numpy>=1.26",
     "pydantic>=2.7",
+    "ruff>=0.15.18",
     "scipy>=1.13",
     "uvicorn[standard]>=0.30",
 ]
@@ -24,3 +25,8 @@ pythonpath = ["."]
 
 [tool.setuptools.packages.find]
 include = ["mundial_betting*"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.18",
+]

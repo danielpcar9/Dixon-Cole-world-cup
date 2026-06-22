@@ -7,7 +7,7 @@ sys.path.insert(0, ".")
 from mundial_betting.dixon_coles import train_ratings
 from mundial_betting.data import save_trained_ratings
 
-# 🎛️ CONFIGURACIÓN GLOBAL
+
 DESDE_ANO = 2022
 FILTRAR_AMISTOSOS = (
     False  # En False para mantener los puentes intercontinentales recientes
@@ -21,20 +21,27 @@ class Match:
         self.tournament = data.get("tournament", "Friendly")
         self.date = data["date"]
 
-        # Manejo y parseo de fechas original
+        # FIX m6: Manejo robusto de fechas con mensaje de error claro
+        date_str = data.get("date", "")
         try:
-            self.match_date = datetime.strptime(data["date"], "%Y-%m-%d").date()
+            self.match_date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
-            clean_date = data["date"].split("T")[0]
-            self.match_date = datetime.strptime(clean_date, "%Y-%m-%d").date()
+            try:
+                clean_date = date_str.split("T")[0]
+                self.match_date = datetime.strptime(clean_date, "%Y-%m-%d").date()
+            except (ValueError, AttributeError) as e:
+                raise ValueError(f"Formato de fecha no reconocido: {date_str!r}") from e
 
-        self.weight = data.get("weight", 1.0)
         self.neutral = data.get("neutral", False)
         self.is_neutral = data.get("neutral", False)
 
-        # 📊 COEFICIENTES DE CONFEDERACIÓN (Ajuste de peso regional)
-        home_g = float(data["home_score"])
-        away_g = float(data["away_score"])
+        # FIX C2: Mantener goles enteros para respetar el modelo Poisson.
+        # Los coeficientes regionales se aplican al PESO, no a los goles.
+        home_g = int(data["home_score"])
+        away_g = int(data["away_score"])
+
+        # Peso base del partido
+        weight_factor = 1.0
 
         # El Mundial absoluto NO se toca, es nuestra ancla de verdad intercontinental
         es_mundial = (
@@ -43,23 +50,21 @@ class Match:
         )
 
         if not es_mundial:
-            # Asia (AFC) -> Mitiga las goleadas salvajes en zonas de menor exigencia
+            # Asia (AFC)
             if "AFC" in self.tournament or "Asian" in self.tournament:
-                home_g *= 0.65
-                away_g *= 0.65
+                weight_factor = 0.65
             # Norte y Centroamérica (CONCACAF)
             elif "CONCACAF" in self.tournament or "Gold Cup" in self.tournament:
-                home_g *= 0.70
-                away_g *= 0.70
+                weight_factor = 0.70
             # África (CAF)
             elif "CAF" in self.tournament or "Africa" in self.tournament:
-                home_g *= 0.80
-                away_g *= 0.80
+                weight_factor = 0.80
             # Oceanía (OFC)
             elif "OFC" in self.tournament or "Oceania" in self.tournament:
-                home_g *= 0.40
-                away_g *= 0.40
-            # UEFA (Europa) y CONMEBOL (Sudamérica) se mantienen implícitamente en 1.0
+                weight_factor = 0.40
+            # UEFA y CONMEBOL conservan 1.0
+
+        self.weight = data.get("weight", 1.0) * weight_factor
 
         # Mapeo de las variables que dixon_coles.py busca internamente
         self.home_score = home_g
@@ -69,7 +74,7 @@ class Match:
 
 
 def train_with_json():
-    print("📂 Cargando partidos...")
+    print("📂 Cargando partidos…")
     with open("mundial_betting/sample_matches.json", "r", encoding="utf-8") as f:
         matches_dict = json.load(f)
 
@@ -109,10 +114,14 @@ def train_with_json():
     print(f"Factor de Localía (Home Advantage): {home_adv}")
     print(f"Corrección de Empate (Rho Correction): {rho_val}")
 
-    # Guardar en disco pasando el parámetro corregido
-    save_trained_ratings(result.get("teams", {}), rho_val)
-    print("💾 Ratings guardados en disco con éxito.")
+    # FIX C3 / M5: Guardar en disco con gamma y rho correctos usando kwargs explícitos
+    save_trained_ratings(
+        result.get("teams", {}),
+        gamma=home_adv,
+        rho=rho_val,
+    )
 
+    print("💾 Ratings guardados en disco con éxito.")
     return result
 
 

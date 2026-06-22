@@ -3,8 +3,7 @@ from datetime import datetime
 import numpy as np
 from types import SimpleNamespace
 
-# Imports corregidos para sincronizar estados de memoria
-from mundial_betting.data import normalize_team_name, TEAMS
+from mundial_betting.data import normalize_team_name, TEAMS, TeamRating
 from mundial_betting.dixon_coles import (
     train_ratings,
     predict_match,
@@ -25,31 +24,25 @@ def run_historical_backtest():
         )
         return
 
-    # Ordenar partidos por fecha para un backtest cronológico real
     all_matches.sort(key=lambda x: x["date"])
 
     print(f"📦 Total de partidos disponibles para simulación: {len(all_matches)}")
 
-    # 1. Definir Ventanas Temporales (Filtro optimizado a 5 años de entrenamiento)
     train_set = [m for m in all_matches if "2018-01-01" <= m["date"] < "2023-01-01"]
     test_set = [m for m in all_matches if m["date"] >= "2023-01-01"]
 
-    print(f"🏋️ Partidos de entrenamiento optimizados (2018-2022): {len(train_set)}")
+    print(f"🏋️ Partidos de entrenamiento (2018-2022): {len(train_set)}")
     print(f"🧪 Partidos de evaluación (2023-Presente): {len(test_set)}")
 
     if len(test_set) == 0:
-        print(
-            "⚠️ No hay suficientes partidos en el set de evaluación para calcular métricas."
-        )
+        print("⚠️ No hay suficientes partidos en el set de evaluación.")
         return
 
-    # 2. Entrenar el modelo con el set histórico base
-    print("\n⚙️ Calibrando parámetros Dixon-Coles con SciPy...")
-
+    # 1. ENTRENAMIENTO ÚNICO (rápido)
+    print("\n⚙️ Calibrando parámetros Dixon-Coles...")
     formatted_train = []
     for m in train_set:
         match_date_obj = datetime.strptime(m["date"], "%Y-%m-%d").date()
-
         home_norm = normalize_team_name(m["home_team"])
         away_norm = normalize_team_name(m["away_team"])
 
@@ -57,45 +50,37 @@ def run_historical_backtest():
             SimpleNamespace(
                 home_team=home_norm,
                 away_team=away_norm,
-                home_score=m["home_score"],
-                away_score=m["away_score"],
                 home_goals=m["home_score"],
                 away_goals=m["away_score"],
                 is_neutral=m["neutral"],
-                neutral=m["neutral"],
                 weight=1.0,
                 match_date=match_date_obj,
-                date=match_date_obj,
             )
         )
 
     training_results = train_ratings(
         formatted_train, lambda_reg=1.0, half_life_days=730
     )
-    print("✅ Entrenamiento del bloque histórico completado con éxito.")
+    print("✅ Entrenamiento completado.")
 
-    # Inyectar parámetros globales en memoria
     global_params = training_results.get("global_parameters", {})
     set_trained_gamma(global_params.get("home_advantage_gamma", 1.0))
     set_trained_rho(global_params.get("rho_correction", -0.13))
 
-    # CORRECCIÓN CRÍTICA: Convertir los dicts de los equipos a SimpleNamespace para que tengan el atributo .attack
+    # Cargar equipos en memoria como TeamRating
     TEAMS.clear()
     for team_name, stats in training_results["teams"].items():
-        if isinstance(stats, dict):
-            TEAMS[team_name] = SimpleNamespace(**stats)
-        else:
-            TEAMS[team_name] = stats
+        TEAMS[team_name] = TeamRating(**stats) if isinstance(stats, dict) else stats
 
-    print(f"🔑 Equipos calibrados y cargados en memoria activa: {len(TEAMS)}")
+    print(f"🔑 Equipos calibrados: {len(TEAMS)}")
 
-    # 3. Ciclo de Evaluación (Backtesting)
+    # 2. EVALUACIÓN (sin reentrenamiento intermedio — rápido)
     brier_scores = []
     log_losses = []
     correct_predictions = 0
     total_evaluated = 0
 
-    print("\n🚀 Ejecutando predicciones sobre el set de evaluación...")
+    print("\n🚀 Evaluando predicciones...")
 
     for match in test_set:
         home_norm = normalize_team_name(match["home_team"])
@@ -104,13 +89,13 @@ def run_historical_backtest():
         if home_norm not in TEAMS or away_norm not in TEAMS:
             continue
 
-        home_goals = match["home_score"]
-        away_goals = match["away_score"]
+        home_score = match["home_score"]
+        away_score = match["away_score"]
 
         actual_outcome = "draw"
-        if home_goals > away_goals:
+        if home_score > away_score:
             actual_outcome = "home"
-        elif away_goals > home_goals:
+        elif away_score > home_score:
             actual_outcome = "away"
 
         try:
@@ -121,17 +106,15 @@ def run_historical_backtest():
                 odds=None,
             )
             probs = pred["probabilities"]
-
             p_home = probs["home"]
             p_draw = probs["draw"]
             p_away = probs["away"]
         except Exception as e:
             print(
-                f"⚠️ Error prediciendo {match['home_team']} vs {match['away_team']}: {str(e)}"
+                f"⚠️ Error prediciendo {match['home_team']} vs {match['away_team']}: {e}"
             )
             continue
 
-        # --- Cálculo de Métricas Estadísticas ---
         y_real = np.array(
             [
                 1.0 if actual_outcome == "home" else 0.0,
@@ -139,10 +122,10 @@ def run_historical_backtest():
                 1.0 if actual_outcome == "away" else 0.0,
             ]
         )
-
         y_pred = np.array([p_home, p_draw, p_away])
 
-        brier = float(np.sum((y_pred - y_real) ** 2))
+        # FIX C1: Brier como PROMEDIO
+        brier = float(np.mean((y_pred - y_real) ** 2))
         brier_scores.append(brier)
 
         prob_actual = probs[actual_outcome]
@@ -150,17 +133,17 @@ def run_historical_backtest():
         log_losses.append(log_loss)
 
         outcomes_keys = ["home", "draw", "away"]
-        most_likely_outcome = outcomes_keys[int(np.argmax(y_pred))]
-        if most_likely_outcome == actual_outcome:
+        most_likely = outcomes_keys[int(np.argmax(y_pred))]
+        if most_likely == actual_outcome:
             correct_predictions += 1
 
         total_evaluated += 1
 
-    # 4. Mostrar Resultados del Reporte de Calidad Operativa
-    print("\n" + "=" * 45)
+    # 3. RESULTADOS
+    print("\n" + "=" * 50)
     print("📊 REPORTE DE RENDIMIENTO DIXON-COLES (2023-2026)")
-    print("=" * 45)
-    print(f"🎯 Partidos evaluados de forma efectiva: {total_evaluated}")
+    print("=" * 50)
+    print(f"🎯 Partidos evaluados: {total_evaluated}")
 
     if total_evaluated > 0:
         avg_brier = np.mean(brier_scores)
@@ -170,14 +153,25 @@ def run_historical_backtest():
         print(f"📉 Avg Brier Score: {avg_brier:.4f}  (Objetivo: < 0.22)")
         print(f"🪵 Avg Log Loss:    {avg_log_loss:.4f}  (Objetivo: < 1.00)")
         print(f"🎯 Accuracy Direccional: {accuracy:.2f}%")
-        print("-" * 45)
-        print("💡 Nota: Un Accuracy > 45% en fútbol internacional es un")
-        print("   excelente indicador base considerando los empates.")
+        print("-" * 50)
+
+        if avg_brier < 0.22:
+            print("✅ Brier Score CUMPLE el objetivo (< 0.22)")
+        else:
+            print("❌ Brier Score NO cumple el objetivo")
+
+        if avg_log_loss < 1.00:
+            print("✅ Log Loss CUMPLE el objetivo (< 1.00)")
+        else:
+            print("❌ Log Loss NO cumple el objetivo")
+
+        if accuracy > 45.0:
+            print("✅ Accuracy CUMPLE el objetivo (> 45%)")
+        else:
+            print("❌ Accuracy NO cumple el objetivo")
     else:
-        print(
-            "❌ No se pudieron cruzar suficientes equipos entrenados con el set de prueba."
-        )
-    print("=" * 45 + "\n")
+        print("❌ No se pudieron evaluar partidos.")
+    print("=" * 50 + "\n")
 
 
 if __name__ == "__main__":
