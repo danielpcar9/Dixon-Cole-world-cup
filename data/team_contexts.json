@@ -37,5 +37,51 @@
     },
     "key_players": [],
     "last_updated": "2026-06-21"
+  },
+  "New Zealand": {
+    "team_name": "New Zealand",
+    "form": {
+      "last_results": [
+        "D",
+        "L",
+        "L",
+        "W",
+        "D"
+      ],
+      "goals_scored": 6,
+      "goals_conceded": 10,
+      "btts_count": 2,
+      "clean_sheets": 0,
+      "win_rate": 0.2,
+      "btts_rate": 0.4
+    },
+    "key_players": [],
+    "last_updated": "2026-06-21"
+  },
+  "Argentina": {
+    "team_name": "Argentina",
+    "form": {
+      "last_results": [
+        "W",
+        "W",
+        "W",
+        "W",
+        "W"
+      ],
+      "goals_scored": 15,
+      "goals_conceded": 1,
+      "btts_count": 1,
+      "clean_sheets": 4,
+      "win_rate": 1.0,
+      "btts_rate": 0.2
+    },
+    "key_players": [
+      {
+        "name": "Lionel Messi",
+        "status": "available",
+        "impact": 1.0
+      }
+    ],
+    "last_updated": "2026-06-21"
   }
 }

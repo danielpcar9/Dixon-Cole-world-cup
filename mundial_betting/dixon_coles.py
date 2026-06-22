@@ -552,7 +552,7 @@ def train_ratings(
         [(0.05, 5.0)] * n_teams
         + [(0.05, 5.0)] * n_teams
         + [(0.5, 2.5)]
-        + [(-0.25, 0.25)]
+        + [(-0.12, -0.08)]
     )
 
     constraints = [
@@ -569,7 +569,7 @@ def train_ratings(
         method="SLSQP",
         bounds=bounds,
         constraints=constraints,
-        options={"maxiter": 500, "disp": False},
+        options={"maxiter": 200, "disp": False},
     )
 
     if not result.success:

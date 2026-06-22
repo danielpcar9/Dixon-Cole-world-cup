@@ -1,0 +1,22 @@
+{
+  "Egypt__vs__New Zealand": {
+    "team_a": "New Zealand",
+    "team_b": "Egypt",
+    "matches": [
+      {
+        "date": "2026-06-22",
+        "home_team": "New Zealand",
+        "goals_a": 0,
+        "goals_b": 1,
+        "tournament": ""
+      },
+      {
+        "date": "2026-06-22",
+        "home_team": "New Zealand",
+        "goals_a": 0,
+        "goals_b": 1,
+        "tournament": ""
+      }
+    ]
+  }
+}

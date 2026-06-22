@@ -22,11 +22,11 @@ class OddsInput(BaseModel):
 class MatchContext(BaseModel):
     """Contexto cualitativo para ajustar predicciones con tendencias, H2H y rachas."""
 
-    h2h_home_wins: int = 0
-    h2h_draws: int = 0
-    h2h_away_wins: int = 0
-    h2h_btts_count: int = 0
-    h2h_total: int = 0
+    h2h_home_wins: float = 0.0
+    h2h_draws: float = 0.0
+    h2h_away_wins: float = 0.0
+    h2h_btts_count: float = 0.0
+    h2h_total: float = 0.0
 
     home_btts_streak: int = 0
     away_btts_streak: int = 0
@@ -59,7 +59,9 @@ class PlayerStatus(BaseModel):
 class TeamForm(BaseModel):
     """Resultados de los últimos N partidos oficiales del equipo."""
 
-    last_results: list[Literal["W", "D", "L"]] = Field(default_factory=list, max_length=10)
+    last_results: list[Literal["W", "D", "L"]] = Field(
+        default_factory=list, max_length=10
+    )
     goals_scored: int = 0
     goals_conceded: int = 0
     btts_count: int = 0
@@ -92,7 +94,9 @@ class TeamContext(BaseModel):
         """Factor multiplicativo de ataque basado en jugadores disponibles."""
         if not self.key_players:
             return 1.0
-        total_impact = sum(p.impact for p in self.key_players if p.status == "available")
+        total_impact = sum(
+            p.impact for p in self.key_players if p.status == "available"
+        )
         max_impact = sum(p.impact for p in self.key_players)
         return 0.7 + 0.3 * (total_impact / max_impact) if max_impact > 0 else 1.0
 

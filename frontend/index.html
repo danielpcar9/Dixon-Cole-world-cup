@@ -1082,17 +1082,17 @@
 
         <div class="market-grid mt-4">
           <div class="market-cell" id="cellHome">
-            <div class="market-lbl">1 — Local</div>
+            <div class="market-lbl" id="marketLblHome">1 — Local</div>
             <div class="market-pct" id="resHomePct">—</div>
             <div class="market-implied" id="resHomeImpl"></div>
           </div>
           <div class="market-cell" id="cellDraw">
-            <div class="market-lbl">X — Empate</div>
+            <div class="market-lbl" id="marketLblDraw">X — Empate</div>
             <div class="market-pct" id="resDrawPct">—</div>
             <div class="market-implied" id="resDrawImpl"></div>
           </div>
           <div class="market-cell" id="cellAway">
-            <div class="market-lbl">2 — Visitante</div>
+            <div class="market-lbl" id="marketLblAway">2 — Visitante</div>
             <div class="market-pct" id="resAwayPct">—</div>
             <div class="market-implied" id="resAwayImpl"></div>
           </div>
@@ -1290,10 +1290,14 @@
         $('xgBarAway').style.width = (awayXg / maxXg * 100) + '%';
       });
 
-      /* Markets */
+      /* Markets — ahora con nombres de equipo */
       const fmt = $('oddsFormat').value;
       const conv = fmt === 'american' ? americanToProb : decimalToProb;
       const { odds } = getOdds();
+
+      $('marketLblHome').textContent = `Gana ${data.home_team} (1)`;
+      $('marketLblDraw').textContent = 'Empate (X)';
+      $('marketLblAway').textContent = `Gana ${data.away_team} (2)`;
 
       const mkts = [
         ['cellHome', 'resHomePct', 'resHomeImpl', data.markets.home, odds.home],
@@ -1309,15 +1313,19 @@
       /* Heatmap */
       renderHeatmap(data.exact_scores, data.home_team, data.away_team);
 
-      /* Edge table */
+      /* Edge table — ahora con nombres de equipo */
       const tbody = $('edgeBody');
       tbody.innerHTML = '';
       if (data.edges && Object.keys(data.edges).length > 0) {
         $('edgeCard').classList.remove('hidden');
         const MARKET_LABELS = {
-          home: '1 — Local', draw: 'X — Empate', away: '2 — Visitante',
-          over_25: 'Over 2.5', under_25: 'Under 2.5',
-          btts_yes: 'BTTS Sí', btts_no: 'BTTS No',
+          home: `Gana ${data.home_team} (1)`,
+          draw: 'Empate (X)',
+          away: `Gana ${data.away_team} (2)`,
+          over_25: 'Over 2.5',
+          under_25: 'Under 2.5',
+          btts_yes: 'BTTS Sí',
+          btts_no: 'BTTS No',
         };
         for (const [market, info] of Object.entries(data.edges)) {
           const edge = info.edge;
@@ -1337,14 +1345,13 @@
         $('edgeCard').classList.add('hidden');
       }
 
-      /* Context — PARCHE APLICADO AQUÍ */
+      /* Context */
       const ctxCard = $('contextCard');
       const ctxSection = $('ctxSection');
       if (data.context) {
         ctxCard.classList.remove('hidden');
         const adj = data.context.adjustments;
 
-        // Detectar si realmente hubo boosts aplicados
         const hasActiveBoosts = adj.h2h_boost_applied ||
           adj.btts_boost_applied ||
           adj.key_players_boost_applied ||
@@ -1366,7 +1373,6 @@
               <span class="ctx-dot"></span>${label}
             </span>`).join('');
         } else {
-          // Contexto existe pero sin boosts activos (datos insuficientes)
           ctxSection.innerHTML = `
             <div class="ctx-section-label" style="color: var(--text-muted);">
               📋 Contexto disponible pero sin datos suficientes para ajustar
@@ -1398,7 +1404,6 @@
           h2hDiv.innerHTML = '<div class="h2h-stat" style="grid-column:1/-1"><div class="h2h-stat-lbl">Sin historial H2H previo</div></div>';
         }
       } else {
-        // Sin contexto de ningún tipo
         ctxCard.classList.remove('hidden');
         ctxSection.innerHTML = `
           <div class="ctx-section-label" style="color: var(--text-muted);">
