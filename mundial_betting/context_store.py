@@ -28,13 +28,15 @@ def _h2h_key(team_a: str, team_b: str) -> str:
 def load_team_contexts() -> None:
     global _team_contexts
     if not TEAM_CONTEXT_PATH.exists():
+        print(f"ℹ️  No existe {TEAM_CONTEXT_PATH} — contextos de equipo vacíos")
         return
     try:
         with open(TEAM_CONTEXT_PATH, "r", encoding="utf-8") as f:
             raw = json.load(f)
         _team_contexts = {name: TeamContext(**data) for name, data in raw.items()}
+        print(f"✅ Contextos de equipo cargados: {len(_team_contexts)} equipos")
     except Exception as exc:
-        print(f"Warning: Failed to load team contexts: {exc}")
+        print(f"⚠️  Error cargando contextos de equipo: {exc}")
 
 
 def save_team_contexts() -> None:
@@ -52,13 +54,15 @@ def save_team_contexts() -> None:
 def load_h2h_records() -> None:
     global _h2h_records
     if not H2H_PATH.exists():
+        print(f"ℹ️  No existe {H2H_PATH} — registros H2H vacíos")
         return
     try:
         with open(H2H_PATH, "r", encoding="utf-8") as f:
             raw = json.load(f)
         _h2h_records = {key: H2HRecord(**data) for key, data in raw.items()}
+        print(f"✅ Registros H2H cargados: {len(_h2h_records)} series")
     except Exception as exc:
-        print(f"Warning: Failed to load H2H records: {exc}")
+        print(f"⚠️  Error cargando H2H: {exc}")
 
 
 def save_h2h_records() -> None:
@@ -117,7 +121,7 @@ def add_h2h_match(
     record.matches.append(
         {
             "date": match_date,
-            "home_team": team_a,  # who was actually the home side for this match
+            "home_team": team_a,
             "goals_a": goals_a,
             "goals_b": goals_b,
             "tournament": tournament,
@@ -128,30 +132,31 @@ def add_h2h_match(
 
 def build_match_context(home_team: str, away_team: str) -> Optional[MatchContext]:
     """
-    Construye MatchContext automáticamente a partir de los datos persistidos.
-    Si no hay datos suficientes, devuelve None.
+    Construye MatchContext automáticamente a partir de datos persistidos.
+    Devuelve None si no hay datos suficientes para afectar el modelo.
     """
     home_ctx = get_team_context(home_team)
     away_ctx = get_team_context(away_team)
     h2h = get_h2h(home_team, away_team)
 
+    # Si no hay NADA de datos, devolver None para que el modelo use predicción base
     if not home_ctx and not away_ctx and not h2h:
+        print(f"ℹ️  Sin datos de contexto para {home_team} vs {away_team}")
         return None
+
+    # Si hay contextos de equipo pero están vacíos (form=None), igual son útiles
+    has_meaningful_data = False
 
     h2h_home_wins: float = 0.0
     h2h_away_wins: float = 0.0
     h2h_total: float = 0.0
     h2h_btts_count: float = 0.0
 
-    if h2h:
+    if h2h and h2h.matches:
         from datetime import date as _date
         from mundial_betting.data import normalize_team_name
         from mundial_betting.dixon_coles import time_weight
 
-        # Determine whether today's home_team corresponds to team_a or team_b in the
-        # stored H2HRecord. The key is sorted alphabetically so team_a may not be the
-        # side that was 'home' in any individual match — we only care about which slot
-        # maps to the team that is HOME today.
         home_is_team_a = normalize_team_name(h2h.team_a) == normalize_team_name(
             home_team
         )
@@ -177,10 +182,26 @@ def build_match_context(home_team: str, away_team: str) -> Optional[MatchContext
             if match["goals_a"] > 0 and match["goals_b"] > 0:
                 h2h_btts_count += w
 
+        if h2h_total > 0:
+            has_meaningful_data = True
+            print(f"   📊 H2H: {len(h2h.matches)} partidos, peso total={h2h_total:.2f}")
+
     home_form = home_ctx.form if home_ctx else None
     away_form = away_ctx.form if away_ctx else None
 
-    return MatchContext(
+    # Detectar si los formularios tienen datos reales
+    if home_form and (home_form.btts_count > 0 or home_form.clean_sheets > 0):
+        has_meaningful_data = True
+    if away_form and (away_form.btts_count > 0 or away_form.clean_sheets > 0):
+        has_meaningful_data = True
+
+    if not has_meaningful_data:
+        print(
+            f"ℹ️  Datos de contexto existen pero están vacíos para {home_team} vs {away_team}"
+        )
+        return None
+
+    ctx = MatchContext(
         h2h_home_wins=h2h_home_wins,
         h2h_away_wins=h2h_away_wins,
         h2h_total=h2h_total,
@@ -192,3 +213,38 @@ def build_match_context(home_team: str, away_team: str) -> Optional[MatchContext
         home_key_players_available=home_ctx.availability_factor() if home_ctx else 1.0,
         away_key_players_available=away_ctx.availability_factor() if away_ctx else 1.0,
     )
+
+    # Log de qué boosts se aplicarán
+    boosts = []
+    if h2h_total >= 3:
+        boosts.append(f"H2H({h2h_total:.1f})")
+    if (
+        home_form
+        and away_form
+        and home_form.btts_count >= 3
+        and away_form.btts_count >= 3
+    ):
+        boosts.append("BTTS")
+    if home_form and home_form.clean_sheets >= 3:
+        boosts.append(f"CS-home({home_form.clean_sheets})")
+    if away_form and away_form.clean_sheets >= 3:
+        boosts.append(f"CS-away({away_form.clean_sheets})")
+    if home_ctx and home_ctx.availability_factor() < 1.0:
+        boosts.append(f"Lesiones-home({home_ctx.availability_factor():.2f})")
+    if away_ctx and away_ctx.availability_factor() < 1.0:
+        boosts.append(f"Lesiones-away({away_ctx.availability_factor():.2f})")
+
+    print(
+        f"   🎯 Contexto aplicado: {', '.join(boosts) if boosts else 'sin boosts activos'}"
+    )
+
+    return ctx
+
+
+def get_context_for_teams(home_team: str, away_team: str) -> Optional[MatchContext]:
+    """Entry point usado por la API. Carga datos si no están en memoria."""
+    if not _team_contexts:
+        load_team_contexts()
+    if not _h2h_records:
+        load_h2h_records()
+    return build_match_context(home_team, away_team)

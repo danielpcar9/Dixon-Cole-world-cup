@@ -1156,7 +1156,7 @@
             <div class="card-subtitle">H2H · Forma · Disponibilidad</div>
           </div>
         </div>
-        <div class="ctx-section">
+        <div class="ctx-section" id="ctxSection">
           <div class="ctx-section-label">Boosts activos</div>
           <div class="ctx-badges" id="contextBadges"></div>
         </div>
@@ -1285,7 +1285,6 @@
       $('resHomeXg').textContent = homeXg.toFixed(2);
       $('resAwayXg').textContent = awayXg.toFixed(2);
 
-      // Animate bars after paint
       requestAnimationFrame(() => {
         $('xgBarHome').style.width = (homeXg / maxXg * 100) + '%';
         $('xgBarAway').style.width = (awayXg / maxXg * 100) + '%';
@@ -1338,24 +1337,50 @@
         $('edgeCard').classList.add('hidden');
       }
 
-      /* Context */
+      /* Context — PARCHE APLICADO AQUÍ */
       const ctxCard = $('contextCard');
+      const ctxSection = $('ctxSection');
       if (data.context) {
         ctxCard.classList.remove('hidden');
         const adj = data.context.adjustments;
-        const badges = [
-          ['H2H', adj.h2h_boost_applied],
-          ['BTTS', adj.btts_boost_applied],
-          ['Jugadores', adj.key_players_boost_applied],
-          ['Portería cero', adj.clean_sheet_boost_applied],
-        ];
-        $('contextBadges').innerHTML = badges.map(([label, on]) => `
-          <span class="ctx-badge ${on ? 'on' : 'off'}">
-            <span class="ctx-dot"></span>${label}
-          </span>`).join('');
+
+        // Detectar si realmente hubo boosts aplicados
+        const hasActiveBoosts = adj.h2h_boost_applied ||
+          adj.btts_boost_applied ||
+          adj.key_players_boost_applied ||
+          adj.clean_sheet_boost_applied;
+
+        if (hasActiveBoosts) {
+          ctxSection.innerHTML = `
+            <div class="ctx-section-label">Boosts activos</div>
+            <div class="ctx-badges" id="contextBadges"></div>
+          `;
+          const badges = [
+            ['H2H', adj.h2h_boost_applied],
+            ['BTTS', adj.btts_boost_applied],
+            ['Jugadores', adj.key_players_boost_applied],
+            ['Portería cero', adj.clean_sheet_boost_applied],
+          ];
+          $('contextBadges').innerHTML = badges.map(([label, on]) => `
+            <span class="ctx-badge ${on ? 'on' : 'off'}">
+              <span class="ctx-dot"></span>${label}
+            </span>`).join('');
+        } else {
+          // Contexto existe pero sin boosts activos (datos insuficientes)
+          ctxSection.innerHTML = `
+            <div class="ctx-section-label" style="color: var(--text-muted);">
+              📋 Contexto disponible pero sin datos suficientes para ajustar
+            </div>
+            <div class="ctx-badges">
+              <span class="ctx-badge off">
+                <span class="ctx-dot"></span>Sin boosts activos
+              </span>
+            </div>
+          `;
+        }
 
         const h2hDiv = $('h2hMini');
-        if (data.context.h2h_home_win_rate !== null) {
+        if (data.context.h2h_home_win_rate !== null && data.context.h2h_home_win_rate !== undefined) {
           h2hDiv.innerHTML = `
             <div class="h2h-stat">
               <div class="h2h-stat-num">${(data.context.h2h_home_win_rate * 100).toFixed(0)}%</div>
@@ -1373,13 +1398,23 @@
           h2hDiv.innerHTML = '<div class="h2h-stat" style="grid-column:1/-1"><div class="h2h-stat-lbl">Sin historial H2H previo</div></div>';
         }
       } else {
-        ctxCard.classList.add('hidden');
+        // Sin contexto de ningún tipo
+        ctxCard.classList.remove('hidden');
+        ctxSection.innerHTML = `
+          <div class="ctx-section-label" style="color: var(--text-muted);">
+            📭 Sin datos de contexto disponibles
+          </div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-top: 8px;">
+            Predicción basada únicamente en ratings Dixon-Coles históricos.
+            <br>Para activar contexto, carga datos de forma, lesiones y H2H en el panel de administración.
+          </div>
+        `;
+        $('h2hMini').innerHTML = '';
       }
     }
 
     /* ── heatmap renderer ── */
     function renderHeatmap(exactScores, homeTeam, awayTeam) {
-      // Build full 6×6 matrix (0-5 goals each)
       const N = 6;
       const matrix = Array.from({ length: N }, () => new Array(N).fill(0));
       exactScores.forEach(s => {
@@ -1391,7 +1426,6 @@
       const flat = matrix.flat();
       const maxProb = Math.max(...flat, 0.0001);
 
-      // Find top score
       let topH = 0, topA = 0, topP = 0;
       for (let h = 0; h < N; h++) for (let a = 0; a < N; a++) {
         if (matrix[h][a] > topP) { topP = matrix[h][a]; topH = h; topA = a; }
@@ -1402,7 +1436,6 @@
       const grid = $('heatmapGrid');
       grid.innerHTML = '';
 
-      // Header row: corner blank + away columns
       grid.appendChild(makeCell('hm-axis', ''));
       for (let a = 0; a < N; a++) {
         const c = makeCell('hm-axis', a);
@@ -1411,9 +1444,7 @@
         grid.appendChild(c);
       }
 
-      // Data rows
       for (let h = 0; h < N; h++) {
-        // Row header
         const rh = makeCell('hm-axis', h);
         rh.style.fontSize = '11px';
         rh.style.color = 'var(--amber)';
@@ -1421,9 +1452,7 @@
 
         for (let a = 0; a < N; a++) {
           const prob = matrix[h][a];
-          const t = prob / maxProb;   // 0→1 normalised
-
-          // Color: navy-700 → amber interpolation
+          const t = prob / maxProb;
           const r = Math.round(lerp(13, 245, t));
           const g = Math.round(lerp(34, 158, t));
           const b = Math.round(lerp(64, 11, t));
