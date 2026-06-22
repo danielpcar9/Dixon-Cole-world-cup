@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from types import SimpleNamespace
 from datetime import date
+import traceback
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,8 +23,15 @@ from mundial_betting.dixon_coles import (
     train_ratings,
 )
 
+# Import de context_store con endpoints
 try:
-    from mundial_betting.context_store import get_context_for_teams
+    from mundial_betting.context_store import (
+        get_context_for_teams,
+        set_team_context,
+        add_h2h_match,
+        load_team_contexts,
+        load_h2h_records,
+    )
 
     CONTEXT_AVAILABLE = True
 except ImportError:
@@ -38,8 +46,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── FRONTEND PRIMERO (antes que los endpoints API) ──
+# FRONTEND PRIMERO
 app.frontend("/", directory="frontend")
+
+
+# ============ PYDANTIC MODELS ============
 
 
 class Odds(BaseModel):
@@ -77,15 +88,51 @@ class TrainRequest(BaseModel):
     reference_date: Optional[date] = None
 
 
-# --- Inicialización ---
+# Contexto models
+class PlayerInput(BaseModel):
+    name: str
+    status: str = "available"
+    impact: float = 1.0
+
+
+class FormInput(BaseModel):
+    last_results: List[str] = []
+    goals_scored: int = 0
+    goals_conceded: int = 0
+    btts_count: int = 0
+    clean_sheets: int = 0
+
+
+class TeamContextInput(BaseModel):
+    team_name: str
+    form: FormInput
+    key_players: List[PlayerInput] = []
+
+
+class H2HInput(BaseModel):
+    team_a: str
+    team_b: str
+    goals_a: int
+    goals_b: int
+    date: str
+
+
+# ============ INICIALIZACIÓN ============
+
 saved_model = load_trained_model()
 if saved_model:
-    global_params = saved_model.get("global_parameters", {})
-    set_trained_gamma(global_params.get("home_advantage_gamma", 1.0))
-    set_trained_rho(global_params.get("rho_correction", -0.13))
+    gp = saved_model.get("global_parameters", {})
+    set_trained_gamma(gp.get("home_advantage_gamma", 1.0))
+    set_trained_rho(gp.get("rho_correction", -0.13))
+
+if CONTEXT_AVAILABLE:
+    load_team_contexts()
+    load_h2h_records()
 
 
-# --- Endpoints API ---
+# ============ ENDPOINTS API ============
+
+
 @app.get("/status")
 def read_status():
     return {
@@ -121,8 +168,9 @@ def predict(payload: PredictRequest):
             odds_format=payload.odds_format,  # type: ignore
         )
         return result
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/predict-auto-context")
@@ -144,8 +192,9 @@ def predict_auto_context(payload: PredictRequest):
             context=context,
         )
         return result
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/train")
@@ -171,17 +220,86 @@ def train(payload: TrainRequest) -> dict:
             reference_date=payload.reference_date,
         )
 
-        global_params = result.get("global_parameters", {})
-        gamma = global_params.get("home_advantage_gamma", 1.0)
-        rho = global_params.get("rho_correction", -0.13)
+        gp = result.get("global_parameters", {})
+        gamma = gp.get("home_advantage_gamma", 1.0)
+        rho = gp.get("rho_correction", -0.13)
 
         save_trained_ratings(result["teams"], gamma=gamma, rho=rho)
         set_trained_gamma(gamma)
         set_trained_rho(rho)
 
         return result
-    except ValueError as exc:
+    except Exception as exc:
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ============ CONTEXT ENDPOINTS ============
+
+
+@app.get("/context/{team_name}")
+def get_team_context_endpoint(team_name: str):
+    """Obtiene contexto de un equipo si existe."""
+    if not CONTEXT_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Contexto no disponible")
+
+    from mundial_betting.context_store import get_team_context
+
+    ctx = get_team_context(team_name)
+    if ctx is None:
+        raise HTTPException(status_code=404, detail="Sin datos de contexto")
+    return ctx
+
+
+@app.post("/context/{team_name}")
+def save_team_context_endpoint(team_name: str, payload: TeamContextInput):
+    """Guarda contexto de un equipo."""
+    if not CONTEXT_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Contexto no disponible")
+
+    from mundial_betting.models import TeamContext, TeamForm, PlayerStatus
+    from mundial_betting.context_store import set_team_context
+
+    # Convertir a modelo interno
+    form = TeamForm(
+        last_results=payload.form.last_results,
+        goals_scored=payload.form.goals_scored,
+        goals_conceded=payload.form.goals_conceded,
+        btts_count=payload.form.btts_count,
+        clean_sheets=payload.form.clean_sheets,
+    )
+
+    ctx = TeamContext(
+        team_name=team_name,
+        form=form,
+        key_players=[
+            PlayerStatus(
+                name=p.name,
+                status=p.status,
+                impact=p.impact,
+            )
+            for p in payload.key_players
+        ],
+    )
+
+    set_team_context(ctx)
+    return {"status": "ok", "team": team_name}
+
+
+@app.post("/h2h")
+def save_h2h_endpoint(payload: H2HInput):
+    """Guarda un partido H2H."""
+    if not CONTEXT_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Contexto no disponible")
+
+    add_h2h_match(
+        team_a=payload.team_a,
+        team_b=payload.team_b,
+        goals_a=payload.goals_a,
+        goals_b=payload.goals_b,
+        match_date=payload.date,
+    )
+    return {"status": "ok"}
 
 
 @app.get("/health")
