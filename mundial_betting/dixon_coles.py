@@ -664,6 +664,7 @@ def negative_log_likelihood(
     temporal_weights: np.ndarray,
     log_fact_home: np.ndarray,
     log_fact_away: np.ndarray,
+    is_neutral: np.ndarray,
     n_teams: int,
     lambda_reg: float = 0.5,
 ) -> float:
@@ -679,6 +680,7 @@ def negative_log_likelihood(
         temporal_weights: Pesos temporales (precalculado)
         log_fact_home: Log(factorial) goles locales (precalculado)
         log_fact_away: Log(factorial) goles visitantes (precalculado)
+        is_neutral: Array booleano indicando partidos en campo neutral (precalculado)
         n_teams: Número de equipos
         lambda_reg: Regularización L2
         
@@ -691,7 +693,7 @@ def negative_log_likelihood(
     rho = params[2 * n_teams + 1]
 
     # Compute lambda and mu for all matches at once
-    home_advantage = np.where(home_idx == away_idx, 1.0, gamma)  # Neutral si mismo equipo
+    home_advantage = np.where(is_neutral, 1.0, gamma)  # 1.0 para neutrales, gamma para locales
     raw_lmbda = alpha[home_idx] * beta[away_idx] * home_advantage
     raw_mu = alpha[away_idx] * beta[home_idx]
 
@@ -727,9 +729,9 @@ def train_ratings(
     half_life_days: float = 730.0,
     reference_date: date | None = None,
     previous_ratings: dict[str, dict] | None = None,
-    rho_bounds: tuple[float, float] = (-0.20, -0.05),
+    rho_bounds: tuple[float, float] = (-0.20, 0.05),
     ftol: float = 1e-6,
-    maxiter: int = 50,
+    maxiter: int = 1000,
 ) -> dict[str, object]:
     """Entrena los ratings Dixon-Coles con optimización en dos fases y warm-start.
     
@@ -747,9 +749,9 @@ def train_ratings(
         previous_ratings: Diccionario de ratings previos para warm-start.
                          Formato: {"team_name": {"attack": x, "defense": y}, 
                                    "__gamma__": z, "__rho__": w}
-        rho_bounds: Tupla (min, max) para el parámetro rho. Default (-0.20, -0.05)
+        rho_bounds: Tupla (min, max) para el parámetro rho. Default (-0.20, 0.05)
         ftol: Tolerancia de convergencia. Default 1e-6
-        maxiter: Máximo de iteraciones. Default 50 (suficiente para warm-start)
+        maxiter: Máximo de iteraciones. Default 1000
     
     Returns:
         Diccionario con ratings entrenados y parámetros globales
@@ -785,6 +787,9 @@ def train_ratings(
     match_dates = np.array([m.match_date for m in matches])
     temporal_weights = time_weight(match_dates, ref_date, half_life_days)
     
+    # Precalcular array de neutralidad
+    is_neutral = np.array([m.is_neutral for m in matches])
+    
     # === WARM-START: Usar parámetros previos si existen ===
     if previous_ratings:
         alpha_init = np.array([
@@ -817,7 +822,7 @@ def train_ratings(
         return negative_log_likelihood(
             full_params, home_idx, away_idx, home_goals, away_goals,
             weights, temporal_weights, log_fact_home, log_fact_away,
-            n_teams, lambda_reg
+            is_neutral, n_teams, lambda_reg
         )
     
     result1 = minimize(
@@ -825,7 +830,7 @@ def train_ratings(
         params_phase1,
         method="L-BFGS-B",
         bounds=bounds_phase1,
-        options={"maxiter": maxiter, "ftol": ftol, "disp": False},
+        options={"maxiter": maxiter, "ftol": ftol},
     )
     
     # === FASE 2: Optimizar rho con warm-start de Fase 1 ===
@@ -841,10 +846,10 @@ def train_ratings(
         negative_log_likelihood,
         params_phase2,
         args=(home_idx, away_idx, home_goals, away_goals, weights, temporal_weights,
-              log_fact_home, log_fact_away, n_teams, lambda_reg),
+              log_fact_home, log_fact_away, is_neutral, n_teams, lambda_reg),
         method="L-BFGS-B",
         bounds=bounds_phase2,
-        options={"maxiter": maxiter, "ftol": ftol, "disp": False},
+        options={"maxiter": maxiter, "ftol": ftol},
     )
     
     # Fallback: usar resultado de Fase 1 si Fase 2 no converge
