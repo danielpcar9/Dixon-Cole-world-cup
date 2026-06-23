@@ -69,6 +69,7 @@ class PredictRequest(BaseModel):
     neutral: bool = False
     odds: Optional[Odds] = None
     odds_format: str = "american"
+    tournament_phase: Optional[str] = None
 
 
 class MatchData(BaseModel):
@@ -166,6 +167,7 @@ def predict(payload: PredictRequest):
             neutral=payload.neutral,
             odds=payload.odds.model_dump() if payload.odds else None,
             odds_format=payload.odds_format,  # type: ignore
+            tournament_phase=payload.tournament_phase,
         )
         return result
     except Exception as exc:
@@ -190,6 +192,7 @@ def predict_auto_context(payload: PredictRequest):
             odds=payload.odds.model_dump() if payload.odds else None,
             odds_format=payload.odds_format,  # type: ignore
             context=context,
+            tournament_phase=payload.tournament_phase,
         )
         return result
     except Exception as exc:
