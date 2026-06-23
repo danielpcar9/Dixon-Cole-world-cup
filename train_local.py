@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import sys
+from collections import Counter
 from datetime import date
 from io import StringIO
 
@@ -153,8 +154,8 @@ def download_dataset(url: str = "https://raw.githubusercontent.com/martj42/inter
     return pd.read_csv(StringIO(resp.text))
 
 
-def filter_dataset(df: pd.DataFrame, min_year: int = 2000) -> pd.DataFrame:
-    print(f"Filtrando dataset (desde {min_year}, solo selecciones FIFA)...")
+def filter_dataset(df: pd.DataFrame, min_year: int = 2000, min_matches: int = 15) -> pd.DataFrame:
+    print(f"Filtrando dataset (desde {min_year}, solo selecciones FIFA, min {min_matches} partidos)...")
 
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
@@ -170,6 +171,15 @@ def filter_dataset(df: pd.DataFrame, min_year: int = 2000) -> pd.DataFrame:
     df = df[df["weight"] > 0]
     df = df.dropna(subset=["home_score", "away_score"])
     df = df[(df["home_score"] >= 0) & (df["away_score"] >= 0)]
+
+    # Filtro estructural: excluir equipos con menos de min_matches partidos
+    all_teams = list(df["home_team"]) + list(df["away_team"])
+    team_counts = Counter(all_teams)
+    df = df[
+        df["home_team"].map(team_counts) >= min_matches &
+        df["away_team"].map(team_counts) >= min_matches
+    ]
+    print(f"Despues de filtro minimo de partidos ({min_matches}): {len(df):,} partidos")
 
     print(f"Partidos filtrados: {len(df):,}")
     print(f"Equipos unicos: {pd.concat([df['home_team'], df['away_team']]).nunique()}")
@@ -231,6 +241,8 @@ def main():
     parser.add_argument("--lambda", dest="lambda_reg", type=float, default=0.5)
     parser.add_argument("--half-life", dest="half_life_days", type=float, default=730.0)
     parser.add_argument("--csv", default=None)
+    parser.add_argument("--min-matches", dest="min_matches", type=int, default=15,
+                        help="Minimo de partidos para incluir un equipo (filtro estructural)")
     args = parser.parse_args()
 
     if args.csv:
@@ -239,7 +251,7 @@ def main():
     else:
         df = download_dataset()
 
-    df = filter_dataset(df, min_year=args.min_year)
+    df = filter_dataset(df, min_year=args.min_year, min_matches=args.min_matches)
 
     if len(df) == 0:
         print("No quedaron partidos despues de filtrar.")
