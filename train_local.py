@@ -7,6 +7,8 @@ Mucho mas rapido para datasets grandes.
 """
 
 import argparse
+import json
+import os
 import sys
 from datetime import date
 from io import StringIO
@@ -18,6 +20,25 @@ import requests
 from mundial_betting.dixon_coles import train_ratings
 from mundial_betting.data import save_trained_ratings
 from mundial_betting.models import MatchData
+
+
+def load_previous_ratings():
+    """Carga ratings previos para warm-start desde data/trained_model.json."""
+    path = "data/trained_model.json"
+    if not os.path.exists(path):
+        print("No se encontro trained_model.json, entrenando desde cero...")
+        return None
+    
+    with open(path) as f:
+        data = json.load(f)
+    
+    # Formato que espera train_ratings
+    ratings = dict(data.get("teams", {}))
+    gp = data.get("global_parameters", {})
+    ratings["__gamma__"] = gp.get("home_advantage_gamma", 1.15)
+    ratings["__rho__"] = gp.get("rho_correction", -0.10)
+    print(f"Warm-start cargado desde {path} con {len(ratings) - 2} equipos")
+    return ratings
 
 # =============================================================================
 # CONFIGURACION
@@ -227,12 +248,16 @@ def main():
     print(f"\nConstruyendo {len(df):,} objetos MatchData...")
     matches = build_matches(df)
 
+    # Cargar ratings previos para warm-start
+    previous_ratings = load_previous_ratings()
+
     print(f"Entrenando modelo con {len(matches):,} partidos...")
     result = train_ratings(
         matches,
         lambda_reg=args.lambda_reg,
         half_life_days=args.half_life_days,
         reference_date=date.today(),
+        previous_ratings=previous_ratings,  # Warm-start activado
     )
 
     gp = result.get("global_parameters", {})
