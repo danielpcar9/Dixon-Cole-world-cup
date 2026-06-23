@@ -155,33 +155,56 @@ def download_dataset(url: str = "https://raw.githubusercontent.com/martj42/inter
 
 
 def filter_dataset(df: pd.DataFrame, min_year: int = 2000, min_matches: int = 15) -> pd.DataFrame:
+    """
+    Filtra el dataset por año mínimo y elimina equipos con pocos partidos.
+    
+    Args:
+        df: DataFrame con los resultados.
+        min_year: Año mínimo para incluir partidos (None para todos).
+        min_matches: Número mínimo de partidos que debe tener un equipo para ser incluido.
+    
+    Returns:
+        DataFrame filtrado.
+    """
+    initial_count = len(df)
+    
+    # Preprocesamiento básico
     print(f"Filtrando dataset (desde {min_year}, solo selecciones FIFA, min {min_matches} partidos)...")
-
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
     df = df[df["date"] >= f"{min_year}-01-01"]
-
+    
     df["home_team"] = df["home_team"].apply(normalize_name)
     df["away_team"] = df["away_team"].apply(normalize_name)
-
+    
     mask = df["home_team"].isin(FIFA_TEAMS) & df["away_team"].isin(FIFA_TEAMS)
     df = df[mask].copy()
-
+    
     df["weight"] = df["tournament"].map(TOURNAMENT_WEIGHTS).fillna(DEFAULT_WEIGHT)
     df = df[df["weight"] > 0]
     df = df.dropna(subset=["home_score", "away_score"])
     df = df[(df["home_score"] >= 0) & (df["away_score"] >= 0)]
+    
+    after_preprocessing = len(df)
+    print(f"Despues de preprocesamiento: {initial_count} -> {after_preprocessing} partidos")
+    
+    # Filtro estructural: Excluir equipos con menos de 'min_matches' partidos
+    if min_matches > 0:
+        all_teams = list(df["home_team"]) + list(df["away_team"])
+        team_counts = Counter(all_teams)
+        
+        # Guardar cantidad antes del filtro para el mensaje
+        pre_filter_count = len(df)
+        
+        df = df[
+            (df["home_team"].map(team_counts) >= min_matches) & 
+            (df["away_team"].map(team_counts) >= min_matches)
+        ]
+        
+        print(f"Filtro estructural (min {min_matches} partidos): {pre_filter_count} -> {len(df)} partidos")
+        print(f"Equipos eliminados por baja exposición: {set(team_counts.keys()) - set(list(df['home_team']) + list(df['away_team']))}")
 
-    # Filtro estructural: excluir equipos con menos de min_matches partidos
-    all_teams = list(df["home_team"]) + list(df["away_team"])
-    team_counts = Counter(all_teams)
-    df = df[
-        df["home_team"].map(team_counts) >= min_matches &
-        df["away_team"].map(team_counts) >= min_matches
-    ]
-    print(f"Despues de filtro minimo de partidos ({min_matches}): {len(df):,} partidos")
-
-    print(f"Partidos filtrados: {len(df):,}")
+    print(f"\nPartidos filtrados: {len(df):,}")
     print(f"Equipos unicos: {pd.concat([df['home_team'], df['away_team']]).nunique()}")
     print(f"Rango de fechas: {df['date'].min().date()} -> {df['date'].max().date()}")
 
