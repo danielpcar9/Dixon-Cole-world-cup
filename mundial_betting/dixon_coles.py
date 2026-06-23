@@ -602,42 +602,59 @@ def negative_log_likelihood(
     half_life_days: float = 730.0,
     reference_date: date | None = None,
 ) -> float:
+    """Función de verosimilitza negativa vectorizada para optimización."""
     n_teams = len(team_indices)
     alpha = params[:n_teams]
     beta = params[n_teams : 2 * n_teams]
     gamma = params[2 * n_teams]
     rho = params[2 * n_teams + 1]
-    log_likelihood = 0.0
 
     ref_date = reference_date or date.today()
 
-    for match in matches:
-        home_idx = team_indices[normalize_team_name(match.home_team)]
-        away_idx = team_indices[normalize_team_name(match.away_team)]
-        home_advantage = 1.0 if match.is_neutral else gamma
+    # Precompute arrays for vectorization
+    home_teams = [normalize_team_name(m.home_team) for m in matches]
+    away_teams = [normalize_team_name(m.away_team) for m in matches]
+    home_goals = np.array([m.home_goals for m in matches])
+    away_goals = np.array([m.away_goals for m in matches])
+    weights = np.array([m.weight for m in matches])
 
-        raw_lmbda = alpha[home_idx] * beta[away_idx] * home_advantage
-        raw_mu = alpha[away_idx] * beta[home_idx]
+    # Map teams to indices
+    home_idx = np.array([team_indices[t] for t in home_teams])
+    away_idx = np.array([team_indices[t] for t in away_teams])
 
-        lmbda = min(4.5, max(0.01, raw_lmbda))
-        mu = min(4.5, max(0.01, raw_mu))
+    # Compute lambda and mu for all matches at once
+    home_advantage = np.array([1.0 if m.is_neutral else gamma for m in matches])
+    raw_lmbda = alpha[home_idx] * beta[away_idx] * home_advantage
+    raw_mu = alpha[away_idx] * beta[home_idx]
 
-        correction = tau_correction(match.home_goals, match.away_goals, lmbda, mu, rho)
-        if correction <= 0:
-            return 1e10
+    lmbda = np.clip(raw_lmbda, 0.01, 4.5)
+    mu = np.clip(raw_mu, 0.01, 4.5)
 
-        temporal_weight = time_weight(match.match_date, ref_date, half_life_days)
-        effective_weight = match.weight * temporal_weight
+    # Vectorized tau correction
+    corrections = np.array([
+        tau_correction(hg, ag, l, m, rho)
+        for hg, ag, l, m in zip(home_goals, away_goals, lmbda, mu, strict=True)
+    ])
 
-        log_likelihood += effective_weight * (
-            log(correction)
-            - lmbda
-            + match.home_goals * log(lmbda)
-            - log(factorial(match.home_goals))
-            - mu
-            + match.away_goals * log(mu)
-            - log(factorial(match.away_goals))
-        )
+    if np.any(corrections <= 0):
+        return 1e10
+
+    # Temporal weights
+    temporal_weights = np.array([
+        time_weight(m.match_date, ref_date, half_life_days) for m in matches
+    ])
+    effective_weights = weights * temporal_weights
+
+    # Vectorized log-likelihood computation
+    log_likelihood = np.sum(effective_weights * (
+        np.log(corrections)
+        - lmbda
+        + home_goals * np.log(lmbda)
+        - np.array([log(factorial(g)) for g in home_goals])
+        - mu
+        + away_goals * np.log(mu)
+        - np.array([log(factorial(g)) for g in away_goals])
+    ))
 
     reg_term = lambda_reg * np.sum((alpha - 1.0) ** 2 + (beta - 1.0) ** 2)
     return float(-log_likelihood + reg_term)
@@ -726,7 +743,7 @@ def train_ratings(
             {"type": "eq", "fun": lambda p: np.sum(p[:n_teams]) - n_teams},
             {"type": "eq", "fun": lambda p: np.sum(p[n_teams:2*n_teams]) - n_teams},
         ],
-        options={"maxiter": 2000, "ftol": ftol, "disp": False},
+        options={"maxiter": 200, "ftol": ftol, "disp": False},
     )
     
     # === FASE 2: Optimizar rho con warm-start de Fase 1 ===
@@ -748,7 +765,7 @@ def train_ratings(
             {"type": "eq", "fun": lambda p: np.sum(p[:n_teams]) - n_teams},
             {"type": "eq", "fun": lambda p: np.sum(p[n_teams:2*n_teams]) - n_teams},
         ],
-        options={"maxiter": 2000, "ftol": ftol, "disp": False},
+        options={"maxiter": 200, "ftol": ftol, "disp": False},
     )
     
     # Fallback: usar resultado de Fase 1 si Fase 2 no converge
