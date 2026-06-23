@@ -20,18 +20,19 @@ _TRAINED_RHO: float = DEFAULT_RHO
 
 # H7: Multiplicadores por tipo de competición para ajustar expected goals
 # Los torneos de élite tienen menos goles debido a mayor presión defensiva
+# NOTA: FIFA World Cup = 1.0 porque el descuento ya está incorporado en los ratings entrenados
 TOURNAMENT_MULTIPLIERS: dict[str, float] = {
-    "FIFA World Cup": 0.90,
-    "FIFA World Cup qualification": 0.95,
-    "Copa America": 0.92,
-    "UEFA Euro": 0.92,
-    "UEFA Euro qualification": 0.94,
-    "Friendly": 1.10,
-    "International Friendly": 1.10,
-    "Nations League": 0.96,
-    "Gold Cup": 0.93,
-    "AFC Asian Cup": 0.91,
-    "Africa Cup of Nations": 0.92,
+    "FIFA World Cup": 1.0,
+    "FIFA World Cup qualification": 1.0,
+    "Copa America": 0.95,
+    "UEFA Euro": 0.95,
+    "UEFA Euro qualification": 0.97,
+    "Friendly": 1.08,
+    "International Friendly": 1.08,
+    "Nations League": 0.98,
+    "Gold Cup": 0.96,
+    "AFC Asian Cup": 0.95,
+    "Africa Cup of Nations": 0.95,
 }
 
 
@@ -518,6 +519,18 @@ def predict_match(
         gamma=effective_gamma,
         tournament=tournament,
     )
+    
+    # H9: Warning para gap confederativo alto
+    from mundial_betting.data import TEAMS as GLOBAL_TEAMS, normalize_team_name
+    home_key = normalize_team_name(home_team)
+    away_key = normalize_team_name(away_team)
+    warning_msg: str | None = None
+    if home_key in GLOBAL_TEAMS and away_key in GLOBAL_TEAMS:
+        home = GLOBAL_TEAMS[home_key]
+        away = GLOBAL_TEAMS[away_key]
+        rating_gap = abs(home.attack - away.attack) / max(home.attack, away.attack)
+        if rating_gap > 0.4:
+            warning_msg = "Gap confederativo alto — divergencia modelo/mercado esperada en 1X2"
 
     if context is not None:
         xg, adjustments = apply_context_adjustments(xg_base, context)
@@ -571,6 +584,8 @@ def predict_match(
         "probabilities": {key: round(value, 6) for key, value in markets.items()},
         "exact_scores": top_exact_scores(matrix),
     }
+    if warning_msg:
+        response["warning"] = warning_msg
     if context_meta is not None:
         response["context"] = context_meta
     if odds:
