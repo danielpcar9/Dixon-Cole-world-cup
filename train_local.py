@@ -196,13 +196,17 @@ def filter_dataset(df: pd.DataFrame, min_year: int = 2000, min_matches: int = 15
         # Guardar cantidad antes del filtro para el mensaje
         pre_filter_count = len(df)
         
+        # Identificar equipos eliminados
+        teams_excluded = {team for team, count in team_counts.items() if count < min_matches}
+        
         df = df[
             (df["home_team"].map(team_counts) >= min_matches) & 
             (df["away_team"].map(team_counts) >= min_matches)
         ]
         
         print(f"Filtro estructural (min {min_matches} partidos): {pre_filter_count} -> {len(df)} partidos")
-        print(f"Equipos eliminados por baja exposición: {set(team_counts.keys()) - set(list(df['home_team']) + list(df['away_team']))}")
+        if teams_excluded:
+            print(f"Equipos eliminados por baja exposición ({len(teams_excluded)}): {sorted(teams_excluded)}")
 
     print(f"\nPartidos filtrados: {len(df):,}")
     print(f"Equipos unicos: {pd.concat([df['home_team'], df['away_team']]).nunique()}")
@@ -215,17 +219,20 @@ def filter_dataset(df: pd.DataFrame, min_year: int = 2000, min_matches: int = 15
 
 
 def build_matches(df: pd.DataFrame) -> list[MatchData]:
+    """Construye lista de partidos usando itertuples para mayor eficiencia."""
     matches = []
-    for _, row in df.iterrows():
+    for row in df.itertuples(index=False):
+        # Access columns by index since column names with special chars may cause issues
+        # Columns: date, home_team, away_team, home_score, away_score, tournament, neutral, weight
         matches.append(
             MatchData(
-                home_team=row["home_team"],
-                away_team=row["away_team"],
-                home_goals=int(row["home_score"]),
-                away_goals=int(row["away_score"]),
-                is_neutral=bool(row.get("neutral", False)),
-                weight=float(row["weight"]),
-                match_date=row["date"].date() if pd.notna(row["date"]) else None,
+                home_team=row.home_team,
+                away_team=row.away_team,
+                home_goals=int(row.home_score),
+                away_goals=int(row.away_score),
+                is_neutral=bool(getattr(row, 'neutral', False)),
+                weight=float(row.weight) if hasattr(row, 'weight') else 1.0,
+                match_date=row.date.date() if pd.notna(row.date) else None,
             )
         )
     return matches
