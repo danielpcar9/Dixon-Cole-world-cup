@@ -300,6 +300,7 @@ def main():
         half_life_days=args.half_life_days,
         reference_date=date.today(),
         previous_ratings=previous_ratings,  # Warm-start activado
+        maxiter=50,  # Reducido de 200 a 50 para warm-start
     )
 
     gp = result.get("global_parameters", {})

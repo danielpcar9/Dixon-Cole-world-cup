@@ -78,19 +78,57 @@ def set_trained_rho(rho: float) -> None:
 
 
 def tau_correction(
-    home_goals: int, away_goals: int, lmbda: float, mu: float, rho: float
-) -> float:
-    if home_goals == 0 and away_goals == 0:
-        correction = 1 - lmbda * mu * rho
-    elif home_goals == 0 and away_goals == 1:
-        correction = 1 + lmbda * rho
-    elif home_goals == 1 and away_goals == 0:
-        correction = 1 + mu * rho
-    elif home_goals == 1 and away_goals == 1:
-        correction = 1 - rho
-    else:
-        correction = 1.0
-    return min(2.0, max(0.01, correction))
+    home_goals: np.ndarray | int,
+    away_goals: np.ndarray | int,
+    lmbda: np.ndarray | float,
+    mu: np.ndarray | float,
+    rho: float,
+) -> np.ndarray | float:
+    """Corrección tau de Dixon-Coles vectorizada.
+    
+    Args:
+        home_goals: Goles locales (array o escalar)
+        away_goals: Goles visitantes (array o escalar)
+        lmbda: Expected goals local (array o escalar)
+        mu: Expected goals visitante (array o escalar)
+        rho: Parámetro de correlación
+        
+    Returns:
+        Factor de corrección tau (array o escalar)
+    """
+    # Caso escalar (para compatibilidad hacia atrás)
+    if not isinstance(home_goals, np.ndarray):
+        if home_goals == 0 and away_goals == 0:
+            correction = 1 - lmbda * mu * rho
+        elif home_goals == 0 and away_goals == 1:
+            correction = 1 + lmbda * rho
+        elif home_goals == 1 and away_goals == 0:
+            correction = 1 + mu * rho
+        elif home_goals == 1 and away_goals == 1:
+            correction = 1 - rho
+        else:
+            correction = 1.0
+        return min(2.0, max(0.01, correction))
+    
+    # Caso vectorizado: usar np.where anidados
+    correction = np.where(
+        (home_goals == 0) & (away_goals == 0),
+        1 - lmbda * mu * rho,
+        np.where(
+            (home_goals == 0) & (away_goals == 1),
+            1 + lmbda * rho,
+            np.where(
+                (home_goals == 1) & (away_goals == 0),
+                1 + mu * rho,
+                np.where(
+                    (home_goals == 1) & (away_goals == 1),
+                    1 - rho,
+                    1.0
+                )
+            )
+        )
+    )
+    return np.clip(correction, 0.01, 2.0)
 
 
 def _dynamic_max_goals(xg_home: float, xg_away: float, min_goals: int = 15) -> int:
@@ -541,16 +579,38 @@ def predict_match(
 
 
 def time_weight(
-    match_date: date | None,
+    match_date: date | np.ndarray | None,
     reference_date: date,
     half_life_days: float,
-) -> float:
-    if match_date is None:
-        return 1.0
-    days_diff = (reference_date - match_date).days
-    if days_diff < 0:
-        return 1.0
-    return 0.5 ** (days_diff / half_life_days)
+) -> float | np.ndarray:
+    """Ponderación temporal exponencial vectorizada.
+    
+    Args:
+        match_date: Fecha del partido (date, array de dates, o None)
+        reference_date: Fecha de referencia
+        half_life_days: Vida media en días
+        
+    Returns:
+        Peso temporal (float o array)
+    """
+    # Caso escalar (para compatibilidad hacia atrás)
+    if not isinstance(match_date, np.ndarray):
+        if match_date is None:
+            return 1.0
+        days_diff = (reference_date - match_date).days
+        if days_diff < 0:
+            return 1.0
+        return 0.5 ** (days_diff / half_life_days)
+    
+    # Caso vectorizado: calcular para todo el array de una vez
+    # Convertir fechas a días desde epoch
+    ref_ordinal = reference_date.toordinal()
+    match_ordinals = np.array([d.toordinal() if d is not None else ref_ordinal for d in match_date])
+    days_diff = ref_ordinal - match_ordinals
+    
+    # Weight = 0.5^(days_diff / half_life_days)
+    weights = np.where(days_diff < 0, 1.0, 0.5 ** (days_diff / half_life_days))
+    return weights
 
 
 def _apply_elite_adjustment(
@@ -596,53 +656,54 @@ def _apply_elite_adjustment(
 
 def negative_log_likelihood(
     params: np.ndarray,
-    matches: list[MatchData],
-    team_indices: dict[str, int],
+    home_idx: np.ndarray,
+    away_idx: np.ndarray,
+    home_goals: np.ndarray,
+    away_goals: np.ndarray,
+    weights: np.ndarray,
+    temporal_weights: np.ndarray,
+    log_fact_home: np.ndarray,
+    log_fact_away: np.ndarray,
+    n_teams: int,
     lambda_reg: float = 0.5,
-    half_life_days: float = 730.0,
-    reference_date: date | None = None,
 ) -> float:
-    """Función de verosimilitza negativa vectorizada para optimización."""
-    n_teams = len(team_indices)
+    """Función de verosimilitud negativa completamente vectorizada.
+    
+    Args:
+        params: Vector de parámetros [alpha, beta, gamma, rho]
+        home_idx: Índices de equipos locales (precalculado)
+        away_idx: Índices de equipos visitantes (precalculado)
+        home_goals: Goles locales (precalculado)
+        away_goals: Goles visitantes (precalculado)
+        weights: Pesos por torneo (precalculado)
+        temporal_weights: Pesos temporales (precalculado)
+        log_fact_home: Log(factorial) goles locales (precalculado)
+        log_fact_away: Log(factorial) goles visitantes (precalculado)
+        n_teams: Número de equipos
+        lambda_reg: Regularización L2
+        
+    Returns:
+        Verosimilitud negativa
+    """
     alpha = params[:n_teams]
     beta = params[n_teams : 2 * n_teams]
     gamma = params[2 * n_teams]
     rho = params[2 * n_teams + 1]
 
-    ref_date = reference_date or date.today()
-
-    # Precompute arrays for vectorization
-    home_teams = [normalize_team_name(m.home_team) for m in matches]
-    away_teams = [normalize_team_name(m.away_team) for m in matches]
-    home_goals = np.array([m.home_goals for m in matches])
-    away_goals = np.array([m.away_goals for m in matches])
-    weights = np.array([m.weight for m in matches])
-
-    # Map teams to indices
-    home_idx = np.array([team_indices[t] for t in home_teams])
-    away_idx = np.array([team_indices[t] for t in away_teams])
-
     # Compute lambda and mu for all matches at once
-    home_advantage = np.array([1.0 if m.is_neutral else gamma for m in matches])
+    home_advantage = np.where(home_idx == away_idx, 1.0, gamma)  # Neutral si mismo equipo
     raw_lmbda = alpha[home_idx] * beta[away_idx] * home_advantage
     raw_mu = alpha[away_idx] * beta[home_idx]
 
     lmbda = np.clip(raw_lmbda, 0.01, 4.5)
     mu = np.clip(raw_mu, 0.01, 4.5)
 
-    # Vectorized tau correction
-    corrections = np.array([
-        tau_correction(hg, ag, l, m, rho)
-        for hg, ag, l, m in zip(home_goals, away_goals, lmbda, mu, strict=True)
-    ])
+    # Vectorized tau correction (ahora opera directamente sobre arrays)
+    corrections = tau_correction(home_goals, away_goals, lmbda, mu, rho)
 
     if np.any(corrections <= 0):
         return 1e10
 
-    # Temporal weights
-    temporal_weights = np.array([
-        time_weight(m.match_date, ref_date, half_life_days) for m in matches
-    ])
     effective_weights = weights * temporal_weights
 
     # Vectorized log-likelihood computation
@@ -650,10 +711,10 @@ def negative_log_likelihood(
         np.log(corrections)
         - lmbda
         + home_goals * np.log(lmbda)
-        - np.array([log(factorial(g)) for g in home_goals])
+        - log_fact_home
         - mu
         + away_goals * np.log(mu)
-        - np.array([log(factorial(g)) for g in away_goals])
+        - log_fact_away
     ))
 
     reg_term = lambda_reg * np.sum((alpha - 1.0) ** 2 + (beta - 1.0) ** 2)
@@ -668,13 +729,15 @@ def train_ratings(
     previous_ratings: dict[str, dict] | None = None,
     rho_bounds: tuple[float, float] = (-0.20, -0.05),
     ftol: float = 1e-6,
+    maxiter: int = 50,
 ) -> dict[str, object]:
     """Entrena los ratings Dixon-Coles con optimización en dos fases y warm-start.
     
     Implementa la Recomendación Prioritaria #1: optimización por bloques que:
     (a) carga parámetros previos como warm-start, 
     (b) ejecuta SLSQP en dos fases separando la optimización de rho, 
-    (c) relaja ftol a 1e-6 para mayor velocidad.
+    (c) relaja ftol a 1e-6 para mayor velocidad,
+    (d) pasa arrays precalculados a la función de verosimilitud.
     
     Args:
         matches: Lista de partidos para entrenar
@@ -686,6 +749,7 @@ def train_ratings(
                                    "__gamma__": z, "__rho__": w}
         rho_bounds: Tupla (min, max) para el parámetro rho. Default (-0.20, -0.05)
         ftol: Tolerancia de convergencia. Default 1e-6
+        maxiter: Máximo de iteraciones. Default 50 (suficiente para warm-start)
     
     Returns:
         Diccionario con ratings entrenados y parámetros globales
@@ -699,6 +763,27 @@ def train_ratings(
 
     team_indices = {team: index for index, team in enumerate(teams)}
     n_teams = len(teams)
+    
+    # === PRECALCULAR ARRAYS CONSTANTES (fuera del bucle de optimización) ===
+    home_teams = [normalize_team_name(m.home_team) for m in matches]
+    away_teams = [normalize_team_name(m.away_team) for m in matches]
+    home_goals = np.array([m.home_goals for m in matches])
+    away_goals = np.array([m.away_goals for m in matches])
+    weights = np.array([m.weight for m in matches])
+    
+    # Map teams to indices
+    home_idx = np.array([team_indices[t] for t in home_teams])
+    away_idx = np.array([team_indices[t] for t in away_teams])
+    
+    # Precalcular log(factorial) para evitar recálculo en cada iteración
+    from math import factorial as _factorial
+    log_fact_home = np.array([log(_factorial(g)) for g in home_goals])
+    log_fact_away = np.array([log(_factorial(g)) for g in away_goals])
+    
+    # Precalcular pesos temporales
+    ref_date = reference_date or date.today()
+    match_dates = np.array([m.match_date for m in matches])
+    temporal_weights = time_weight(match_dates, ref_date, half_life_days)
     
     # === WARM-START: Usar parámetros previos si existen ===
     if previous_ratings:
@@ -730,20 +815,17 @@ def train_ratings(
         """NLL con rho fijo en fase 1."""
         full_params = np.append(params, rho_init)
         return negative_log_likelihood(
-            full_params, matches, team_indices,
-            lambda_reg, half_life_days, reference_date
+            full_params, home_idx, away_idx, home_goals, away_goals,
+            weights, temporal_weights, log_fact_home, log_fact_away,
+            n_teams, lambda_reg
         )
     
     result1 = minimize(
         nll_phase1,
         params_phase1,
-        method="SLSQP",
+        method="L-BFGS-B",
         bounds=bounds_phase1,
-        constraints=[
-            {"type": "eq", "fun": lambda p: np.sum(p[:n_teams]) - n_teams},
-            {"type": "eq", "fun": lambda p: np.sum(p[n_teams:2*n_teams]) - n_teams},
-        ],
-        options={"maxiter": 200, "ftol": ftol, "disp": False},
+        options={"maxiter": maxiter, "ftol": ftol, "disp": False},
     )
     
     # === FASE 2: Optimizar rho con warm-start de Fase 1 ===
@@ -758,14 +840,11 @@ def train_ratings(
     result2 = minimize(
         negative_log_likelihood,
         params_phase2,
-        args=(matches, team_indices, lambda_reg, half_life_days, reference_date),
-        method="SLSQP",
+        args=(home_idx, away_idx, home_goals, away_goals, weights, temporal_weights,
+              log_fact_home, log_fact_away, n_teams, lambda_reg),
+        method="L-BFGS-B",
         bounds=bounds_phase2,
-        constraints=[
-            {"type": "eq", "fun": lambda p: np.sum(p[:n_teams]) - n_teams},
-            {"type": "eq", "fun": lambda p: np.sum(p[n_teams:2*n_teams]) - n_teams},
-        ],
-        options={"maxiter": 200, "ftol": ftol, "disp": False},
+        options={"maxiter": maxiter, "ftol": ftol, "disp": False},
     )
     
     # Fallback: usar resultado de Fase 1 si Fase 2 no converge
