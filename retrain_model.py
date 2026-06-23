@@ -9,10 +9,12 @@ via la API local /train.
 Uso:
     python retrain_model.py
     python retrain_model.py --port 8000 --half-life 365 --lambda 0.3
+    python retrain_model.py --min-matches 15  # Filtrar equipos con pocos partidos
 """
 
 import argparse
 import sys
+from collections import Counter
 from datetime import date
 from io import StringIO
 
@@ -132,7 +134,7 @@ def download_dataset(url: str = "https://raw.githubusercontent.com/martj42/inter
     return pd.read_csv(StringIO(resp.text))
 
 
-def filter_dataset(df: pd.DataFrame, min_year: int = 2000) -> pd.DataFrame:
+def filter_dataset(df: pd.DataFrame, min_year: int = 2000, min_matches: int = 15) -> pd.DataFrame:
     print(f"Filtrando dataset (desde {min_year}, solo selecciones FIFA)...")
 
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
@@ -149,7 +151,24 @@ def filter_dataset(df: pd.DataFrame, min_year: int = 2000) -> pd.DataFrame:
     df = df.dropna(subset=["home_score", "away_score"])
     df = df[(df["home_score"] >= 0) & (df["away_score"] >= 0)]
 
-    print(f"Partidos filtrados: {len(df):,}")
+    # Filtro estructural: excluir equipos con menos de min_matches partidos
+    # Esto elimina el ruido de clasificatorias de Oceania y Africa contra equipos muy debiles
+    all_teams = list(df["home_team"]) + list(df["away_team"])
+    team_counts = Counter(all_teams)
+    
+    teams_excluded = [team for team, count in team_counts.items() if count < min_matches]
+    print(f"\n📊 Filtro estructural: {len(teams_excluded)} equipos con menos de {min_matches} partidos")
+    if len(teams_excluded) <= 20:
+        print(f"   Equipos excluidos: {', '.join(sorted(teams_excluded))}")
+    else:
+        print(f"   Primeros 20 equipos excluidos: {', '.join(sorted(teams_excluded)[:20])}...")
+    
+    df = df[
+        (df["home_team"].map(team_counts) >= min_matches) &
+        (df["away_team"].map(team_counts) >= min_matches)
+    ].copy()
+
+    print(f"\nPartidos filtrados: {len(df):,}")
     print(f"Equipos unicos: {pd.concat([df['home_team'], df['away_team']]).nunique()}")
     print(f"Rango de fechas: {df['date'].min().date()} -> {df['date'].max().date()}")
 
@@ -226,6 +245,7 @@ def main():
     parser = argparse.ArgumentParser(description="Reentrena el modelo Dixon-Coles con datos internacionales filtrados.")
     parser.add_argument("--url", default="http://127.0.0.1:8000", help="Base URL de la API")
     parser.add_argument("--min-year", type=int, default=2000, help="Ano minimo de partidos")
+    parser.add_argument("--min-matches", type=int, default=15, help="Minimo de partidos por equipo (filtro estructural)")
     parser.add_argument("--lambda", dest="lambda_reg", type=float, default=0.5, help="Lambda de regularizacion")
     parser.add_argument("--half-life", dest="half_life_days", type=float, default=730.0, help="Half-life en dias")
     parser.add_argument("--csv", default=None, help="Ruta a CSV local (opcional)")
@@ -237,7 +257,7 @@ def main():
     else:
         df = download_dataset()
 
-    df = filter_dataset(df, min_year=args.min_year)
+    df = filter_dataset(df, min_year=args.min_year, min_matches=args.min_matches)
 
     if len(df) == 0:
         print("No quedaron partidos despues de filtrar.")
