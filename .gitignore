@@ -14,11 +14,32 @@ __pycache__/
 .env.local
 *.env.*
 
+# Dependencies
+.venv/
+venv/
+node_modules/
+
+# Build artifacts
+dist/
+build/
+target/
+
 # Editors
 .vscode/
 .idea/
 
-# Dependencies
-.venv/
-venv/
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
+# MyPy
+.mypy_cache/
+
+# PyTest
+.pytest_cache/
 ```
