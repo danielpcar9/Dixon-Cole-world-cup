@@ -1253,15 +1253,15 @@
       $('results').classList.add('hidden');
 
       const { format, odds } = getOdds();
-      const phase = $('tournamentPhase').value;
       const payload = {
         home_team: home,
         away_team: away,
         neutral: $('neutral').checked,
         odds_format: format,
+        tournament: "FIFA World Cup",
+        tournament_phase: $('tournamentPhase').value || null,
       };
       if (Object.keys(odds).length > 0) payload.odds = odds;
-      if (phase) payload.tournament_phase = phase;
 
       const endpoint = $('useContext').checked ? '/predict-auto-context' : '/predict';
 
