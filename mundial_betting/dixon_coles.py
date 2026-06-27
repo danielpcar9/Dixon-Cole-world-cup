@@ -207,16 +207,23 @@ def _score_matrix_from_xg(
     effective_max = (
         max_goals if max_goals is not None else _dynamic_max_goals(xg.home, xg.away)
     )
-    matrix = np.zeros((effective_max + 1, effective_max + 1), dtype=float)
-
-    for home_goals in range(effective_max + 1):
-        for away_goals in range(effective_max + 1):
-            correction = tau_correction(home_goals, away_goals, xg.home, xg.away, rho)
-            matrix[home_goals, away_goals] = (
-                correction
-                * poisson_pmf(home_goals, xg.home)
-                * poisson_pmf(away_goals, xg.away)
-            )
+    
+    # Vectorización con meshgrid de NumPy
+    home_goals, away_goals = np.meshgrid(
+        np.arange(effective_max + 1),
+        np.arange(effective_max + 1),
+        indexing='ij'
+    )
+    
+    # Calcular corrección tau vectorizada
+    corrections = tau_correction(home_goals, away_goals, xg.home, xg.away, rho)
+    
+    # Calcular PMF de Poisson vectorizada
+    home_pmf = np.exp(-xg.home) * np.power(xg.home, home_goals) / np.vectorize(factorial)(home_goals)
+    away_pmf = np.exp(-xg.away) * np.power(xg.away, away_goals) / np.vectorize(factorial)(away_goals)
+    
+    # Matriz completa vectorizada
+    matrix = corrections * home_pmf * away_pmf
 
     total = float(matrix.sum())
     if total <= 0:
@@ -371,6 +378,40 @@ def top_exact_scores(
         for away in range(matrix.shape[1])
     ]
     return sorted(scores, key=lambda item: item["probability"], reverse=True)[:limit]
+
+
+def estimate_corners(xg_home: float, xg_away: float) -> dict[str, float]:
+    """Estima corners esperados usando fórmula heurística basada en xG.
+    
+    Args:
+        xg_home: Expected goals del equipo local
+        xg_away: Expected goals del equipo visitante
+        
+    Returns:
+        Diccionario con estimación de corners (home, away, total) y 
+        probabilidades over 9.5 y over 10.5
+    """
+    from scipy.stats import poisson
+    
+    # Base internacional: ~10.5 corners por partido
+    BASE_CORNERS = 10.5
+    CORNER_PER_XG = 2.5  # empírico en fútbol internacional
+    
+    expected_home = 3.5 + xg_home * CORNER_PER_XG
+    expected_away = 3.5 + xg_away * CORNER_PER_XG
+    expected_total = expected_home + expected_away
+    
+    # Mercados típicos: over/under 9.5, 10.5
+    over_95 = 1 - poisson.cdf(9, expected_total)
+    over_105 = 1 - poisson.cdf(10, expected_total)
+    
+    return {
+        "expected_home": round(expected_home, 1),
+        "expected_away": round(expected_away, 1),
+        "expected_total": round(expected_total, 1),
+        "over_9_5": round(over_95, 4),
+        "over_10_5": round(over_105, 4),
+    }
 
 
 def implied_probability(odds: float, odds_format: OddsFormat) -> float:
@@ -581,7 +622,6 @@ def predict_match(
             "home_defense_multiplier": xg.home_defense_multiplier,
         },
         "markets": {key: round(value, 6) for key, value in markets.items()},
-        "probabilities": {key: round(value, 6) for key, value in markets.items()},
         "exact_scores": top_exact_scores(matrix),
     }
     if warning_msg:
@@ -590,6 +630,10 @@ def predict_match(
         response["context"] = context_meta
     if odds:
         response["edges"] = edge_report(markets, odds, odds_format)
+    
+    # Añadir estimación de corners basada en xG
+    response["corners"] = estimate_corners(xg.home, xg.away)
+    
     return response
 
 
