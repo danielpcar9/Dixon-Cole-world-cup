@@ -1051,11 +1051,12 @@
 
     <button class="btn-primary" id="submitBtn" onclick="predict()">▶ CALCULAR PREDICCIÓN</button>
 
-    <div id="loading" class="loading hidden">
+    <div id="loading" class="loading">
       <div class="spinner"></div>
       <span>Ejecutando modelo Dixon-Coles...</span>
     </div>
     <div id="error" class="error-msg hidden"></div>
+    <div id="warningBanner" class="error-msg hidden" style="border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.08);color:var(--amber-lt);"></div>
 
     <!-- ── RESULTS ── -->
     <div id="results" class="hidden">
@@ -1131,6 +1132,7 @@
             <div class="hm-legend-bar"></div>
             <span id="hmMax">—</span>
           </div>
+          <div class="top-scores-wrap" id="topScoresGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;"></div>
         </div>
       </div>
 
@@ -1171,6 +1173,39 @@
           <div class="ctx-badges" id="contextBadges"></div>
         </div>
         <div class="h2h-stats" id="h2hMini"></div>
+      </div>
+
+      <!-- Corners -->
+      <div class="card hidden" id="cornersCard">
+        <div class="card-header">
+          <div class="card-icon">📐</div>
+          <div>
+            <div class="card-title">Estimación de corners</div>
+            <div class="card-subtitle">Basado en xG · fórmula heurística</div>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:12px;">
+          <div class="form-group">
+            <div class="form-label">Corners local</div>
+            <div class="market-pct" id="cornersHomeExp" style="font-size:18px;">—</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Corners visitante</div>
+            <div class="market-pct" id="cornersAwayExp" style="font-size:18px;">—</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Total esperado</div>
+            <div class="market-pct" id="cornersTotalExp" style="font-size:18px;">—</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Over 9.5</div>
+            <div class="market-pct" id="cornersOver95" style="font-size:18px;">—</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Over 10.5</div>
+            <div class="market-pct" id="cornersOver105" style="font-size:18px;">—</div>
+          </div>
+        </div>
       </div>
 
     </div><!-- /results -->
@@ -1287,6 +1322,14 @@
       $('results').classList.remove('hidden');
       $('results').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
+      /* Warning banner (gap confederativo) */
+      if (data.warning) {
+        $('warningBanner').textContent = '⚠ ' + data.warning;
+        $('warningBanner').classList.remove('hidden');
+      } else {
+        $('warningBanner').classList.add('hidden');
+      }
+
       /* xG bars */
       const homeXg = data.expected_goals.home;
       const awayXg = data.expected_goals.away;
@@ -1324,6 +1367,16 @@
 
       /* Heatmap */
       renderHeatmap(data.exact_scores, data.home_team, data.away_team);
+
+      /* Top 3 scores debajo del heatmap */
+      const top3 = data.exact_scores.slice(0, 3);
+      $('topScoresGrid').innerHTML = top3.map((s, i) => `
+        <div class="top-score-cell ${i === 0 ? 'top-score-gold' : ''}" style="background:var(--navy-800);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;${i === 0 ? 'border-color:var(--amber);background:rgba(245,158,11,0.08);' : ''}">
+          <div class="top-score-rank" style="font-family:var(--font-data);font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">#${i + 1}</div>
+          <div class="top-score-result" style="font-family:var(--font-ui);font-size:20px;font-weight:700;color:${i === 0 ? 'var(--amber)' : 'var(--text)'};margin:4px 0;">${s.home_goals}-${s.away_goals}</div>
+          <div class="top-score-pct" style="font-family:var(--font-data);font-size:12px;color:var(--amber);">${(s.probability * 100).toFixed(1)}%</div>
+        </div>
+      `).join('');
 
       /* Edge table — ahora con nombres de equipo */
       const tbody = $('edgeBody');
@@ -1427,6 +1480,19 @@
           </div>
         `;
         $('h2hMini').innerHTML = '';
+      }
+
+      /* Corners section */
+      if (data.corners) {
+        const cornersCard = $('cornersCard');
+        cornersCard.classList.remove('hidden');
+        $('cornersHomeExp').textContent = data.corners.expected_home.toFixed(1);
+        $('cornersAwayExp').textContent = data.corners.expected_away.toFixed(1);
+        $('cornersTotalExp').textContent = data.corners.expected_total.toFixed(1);
+        $('cornersOver95').textContent = (data.corners.over_9_5 * 100).toFixed(1) + '%';
+        $('cornersOver105').textContent = (data.corners.over_10_5 * 100).toFixed(1) + '%';
+      } else {
+        $('cornersCard').classList.add('hidden');
       }
     }
 
