@@ -1,39 +1,105 @@
-```
-# Compiled Python files
-*.pyc
+```gitignore
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py~
+*.pyc.bak
+*.pyo.bak
+*.pyd.bak
 
 # Virtual environments
 venv/
 .venv/
-.env
-*.env
+env/
+ENV/
+
+# Dependencies
+pip-wheel-metadata/
+.wheelhouse/
+.eggs/
+*.egg-info/
+
+# Build artifacts
+build/
+dist/
+*.egg
+*.whl
+*.tar.gz
+*.zip
+
+# Cache
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage/
 
 # Logs
 *.log
 
-# Temporary files
-*.tmp
+# Environment variables
+.env
+.env.local
+.env.*
+!.env.example
 
-# IDE specific
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Coverage reports
-.coverage
-coverage/
-htmlcov/
-
-# Python cache
-.mypy_cache/
-.pytest_cache/
-
-# Build artifacts
-dist/
-build/
-target/
-
-# OS generated files
+# OS
 .DS_Store
 Thumbs.db
+
+# Testing
+.tests/
+.testresults/
+.nyc_output/
+coverage.xml
+htmlcov/
+
+# Distribution / packaging
+.Python
+*.so
+.libs/
+.installed.cfg
+*.manifest
+*.spec
+
+# PyInstaller
+*.pyz
+*.pyz-internal-wrap
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Scrapy
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Lab
+.lab/
+
+# Local configuration file (may contain secrets)
+.config.json
 ```
