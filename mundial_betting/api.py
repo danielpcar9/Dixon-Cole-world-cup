@@ -4,10 +4,9 @@ from typing import List, Optional
 from types import SimpleNamespace
 from datetime import date
 import traceback
-from slowapi import SlowAPILimiter
+from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -44,8 +43,8 @@ except ImportError:
 app = FastAPI(title="Mundial Betting API", version="2.0.0")
 
 # Rate limiting: 10 requests/min para /predict, 2/hora para /train
-limiter = SlowAPILimiter(default_rate_limit="60/minute")
-app.add_middleware(SlowAPIMiddleware)
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
 
 app.add_middleware(
     CORSMiddleware,
