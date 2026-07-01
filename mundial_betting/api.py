@@ -4,6 +4,10 @@ from typing import List, Optional
 from types import SimpleNamespace
 from datetime import date
 import traceback
+from slowapi import SlowAPILimiter
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -39,6 +43,10 @@ except ImportError:
 
 app = FastAPI(title="Mundial Betting API", version="2.0.0")
 
+# Rate limiting: 10 requests/min para /predict, 2/hora para /train
+limiter = SlowAPILimiter(default_rate_limit="60/minute")
+app.add_middleware(SlowAPIMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,7 +54,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# FRONTEND PRIMERO
+# ============ INICIALIZACIÓN ============
+
+saved_model = load_trained_model()
+if saved_model:
+    gp = saved_model.get("global_parameters", {})
+    set_trained_gamma(gp.get("home_advantage_gamma", 1.0))
+    set_trained_rho(gp.get("rho_correction", -0.13))
+
+if CONTEXT_AVAILABLE:
+    load_team_contexts()
+    load_h2h_records()
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request, exc):
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded. Please try again later."}
+    )
+
+
+# FRONTEND DESPUÉS DE ENDPOINTS para evitar que intercepte rutas API
 app.frontend("/", directory="frontend")
 
 
@@ -118,19 +148,6 @@ class H2HInput(BaseModel):
     date: str
 
 
-# ============ INICIALIZACIÓN ============
-
-saved_model = load_trained_model()
-if saved_model:
-    gp = saved_model.get("global_parameters", {})
-    set_trained_gamma(gp.get("home_advantage_gamma", 1.0))
-    set_trained_rho(gp.get("rho_correction", -0.13))
-
-if CONTEXT_AVAILABLE:
-    load_team_contexts()
-    load_h2h_records()
-
-
 # ============ ENDPOINTS API ============
 
 
@@ -159,6 +176,7 @@ def get_teams():
 
 
 @app.post("/predict")
+@limiter.limit("30/minute")
 def predict(payload: PredictRequest):
     try:
         result = predict_match(
@@ -176,6 +194,7 @@ def predict(payload: PredictRequest):
 
 
 @app.post("/predict-auto-context")
+@limiter.limit("30/minute")
 def predict_auto_context(payload: PredictRequest):
     try:
         home_norm = normalize_team_name(payload.home_team)
@@ -201,6 +220,7 @@ def predict_auto_context(payload: PredictRequest):
 
 
 @app.post("/train")
+@limiter.limit("2/hour")
 def train(payload: TrainRequest) -> dict:
     try:
         formatted_matches = [

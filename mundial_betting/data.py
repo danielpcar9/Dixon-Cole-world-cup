@@ -5,6 +5,76 @@ from pydantic import BaseModel
 MODEL_PATH = "data/trained_model.json"
 
 
+# =============================================================================
+# CONSTANTS - Fuente única de verdad para nombres de equipos y aliases
+# =============================================================================
+
+FIFA_TEAMS = {
+    "Afghanistan", "Albania", "Algeria", "American Samoa", "Andorra", "Angola",
+    "Anguilla", "Antigua And Barbuda", "Argentina", "Armenia", "Aruba", "Australia",
+    "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados",
+    "Belarus", "Belgium", "Belize", "Benin", "Bermuda", "Bhutan", "Bolivia",
+    "Bosnia And Herzegovina", "Botswana", "Brazil", "British Virgin Islands",
+    "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon",
+    "Canada", "Cape Verde", "Cayman Islands", "Central African Republic", "Chad",
+    "Chile", "China", "Colombia", "Comoros", "Congo", "Cook Islands",
+    "Costa Rica", "Croatia", "Cuba", "Curacao", "Cyprus", "Czech Republic",
+    "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Dr Congo",
+    "Ecuador", "Egypt", "El Salvador", "England", "Equatorial Guinea",
+    "Estonia", "Eswatini", "Ethiopia", "Faroe Islands", "Fiji",
+    "Finland", "France", "French Guiana", "Gabon", "Gambia", "Georgia",
+    "Germany", "Ghana", "Gibraltar", "Greece", "Grenada", "Guadeloupe",
+    "Guam", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti",
+    "Honduras", "Hong Kong", "Hungary", "Iceland", "India", "Indonesia",
+    "Iran", "Iraq", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan",
+    "Jordan", "Kazakhstan", "Kenya", "Kosovo", "Kuwait", "Kyrgyzstan",
+    "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya",
+    "Liechtenstein", "Lithuania", "Luxembourg", "Macau", "Madagascar",
+    "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Martinique",
+    "Mauritania", "Mauritius", "Mexico", "Moldova", "Mongolia", "Montenegro",
+    "Montserrat", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nepal",
+    "Netherlands", "New Caledonia", "New Zealand", "Nicaragua", "Niger",
+    "Nigeria", "North Korea", "North Macedonia", "Northern Ireland",
+    "Northern Mariana Islands", "Norway", "Oman", "Pakistan", "Palestine",
+    "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland",
+    "Portugal", "Puerto Rico", "Qatar", "Republic Of Ireland", "Romania",
+    "Russia", "Rwanda", "Saint Kitts And Nevis", "Saint Lucia", "Saint Martin",
+    "Saint Vincent And The Grenadines", "Samoa", "San Marino", "Saudi Arabia",
+    "Scotland", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore",
+    "Sint Maarten", "Slovakia", "Slovenia", "Solomon Islands", "Somalia",
+    "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan",
+    "Suriname", "Sweden", "Switzerland", "Syria", "Tahiti", "Taiwan",
+    "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga",
+    "Trinidad And Tobago", "Tunisia", "Turkey", "Turkmenistan",
+    "Turks And Caicos Islands", "Tuvalu", "Uganda", "Ukraine",
+    "United Arab Emirates", "United States", "United States Virgin Islands",
+    "Uruguay", "Uzbekistan", "Vanuatu", "Venezuela", "Vietnam", "Wales",
+    "Yemen", "Zambia", "Zimbabwe",
+}
+
+NAME_ALIASES = {
+    "USA": "United States",
+    "Korea Republic": "South Korea",
+    "Korea DPR": "North Korea",
+    "Republic of Ireland": "Republic Of Ireland",
+    "Trinidad and Tobago": "Trinidad And Tobago",
+    "Bosnia and Herzegovina": "Bosnia And Herzegovina",
+    "Czechia": "Czech Republic",
+    "Cabo Verde": "Cape Verde",
+    "Cote d'Ivoire": "Ivory Coast",
+    "Sao Tome and Principe": "Sao Tome And Principe",
+    "Antigua and Barbuda": "Antigua And Barbuda",
+    "Saint Kitts and Nevis": "Saint Kitts And Nevis",
+    "Saint Vincent and the Grenadines": "Saint Vincent And The Grenadines",
+    "Turks and Caicos Islands": "Turks And Caicos Islands",
+    "Northern Mariana Islands": "Northern Mariana Islands",
+    "American Samoa": "American Samoa",
+    "Cook Islands": "Cook Islands",
+    "New Caledonia": "New Caledonia",
+    "Curacao": "Curacao",
+}
+
+
 class TeamRating(BaseModel):
     attack: float
     defense: float
@@ -16,7 +86,11 @@ TEAMS: dict[str, TeamRating] = {}
 
 def normalize_team_name(name: str) -> str:
     """Normaliza espacios y mayúsculas en los nombres de equipos."""
-    return " ".join(name.strip().split()).title()
+    name = name.strip()
+    # Aplicar aliases primero
+    if name in NAME_ALIASES:
+        name = NAME_ALIASES[name]
+    return " ".join(name.split()).title()
 
 
 def get_team(name: str) -> TeamRating | None:

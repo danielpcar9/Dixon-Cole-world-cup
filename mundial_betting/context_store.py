@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Optional
 from datetime import date
@@ -14,6 +15,8 @@ H2H_PATH = Path(__file__).resolve().parent.parent / "data" / "h2h_records.json"
 
 _team_contexts: dict[str, TeamContext] = {}
 _h2h_records: dict[str, H2HRecord] = {}
+_init_lock = threading.Lock()
+_initialized = False
 
 
 def _h2h_key(team_a: str, team_b: str) -> str:
@@ -242,9 +245,14 @@ def build_match_context(home_team: str, away_team: str) -> Optional[MatchContext
 
 
 def get_context_for_teams(home_team: str, away_team: str) -> Optional[MatchContext]:
-    """Entry point usado por la API. Carga datos si no están en memoria."""
-    if not _team_contexts:
-        load_team_contexts()
-    if not _h2h_records:
-        load_h2h_records()
+    """Entry point usado por la API. Carga datos si no están en memoria con thread-safe lazy init."""
+    global _initialized
+    if not _initialized:
+        with _init_lock:
+            if not _initialized:  # Double-check pattern
+                if not _team_contexts:
+                    load_team_contexts()
+                if not _h2h_records:
+                    load_h2h_records()
+                _initialized = True
     return build_match_context(home_team, away_team)
