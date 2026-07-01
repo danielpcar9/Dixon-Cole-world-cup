@@ -1,75 +1,39 @@
 ```
-# Python
-__pycache__/
+# Compiled Python files
 *.pyc
-*.pyo
-*.pyd
-.Python
-env/
+__pycache__/
+
+# Virtual environments
 venv/
 .venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.DS_Store
-Thumbs.db
-
-# Django
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask
-instance/
-.webassets-cache
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Scrapy
-eggs/
-develop-eggs/
-.scraps
-TwistedXHTML.log
-scrapy.log
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-target/
-
-# VS Code
-.vscode/
-
-# MyPy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pytest
-.pytest_cache/
-
-# Coverage
-htmlcov/
-.coverage
-.coverage.*
-
-# Environment variables
 .env
-.env.local
-.env.*
+*.env
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# IDE specific
+.vscode/
+.idea/
+
+# Coverage reports
+.coverage
+coverage/
+htmlcov/
+
+# Python cache
+.mypy_cache/
+.pytest_cache/
 
 # Build artifacts
 dist/
 build/
-*.egg-info/
+target/
+
+# OS generated files
+.DS_Store
+Thumbs.db
 ```
