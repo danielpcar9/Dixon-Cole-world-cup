@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional
 from types import SimpleNamespace
@@ -176,7 +176,7 @@ def get_teams():
 
 @app.post("/predict")
 @limiter.limit("30/minute")
-def predict(payload: PredictRequest):
+def predict(request: Request, payload: PredictRequest):
     try:
         result = predict_match(
             home_team=payload.home_team,
@@ -194,7 +194,7 @@ def predict(payload: PredictRequest):
 
 @app.post("/predict-auto-context")
 @limiter.limit("30/minute")
-def predict_auto_context(payload: PredictRequest):
+def predict_auto_context(request: Request, payload: PredictRequest):
     try:
         home_norm = normalize_team_name(payload.home_team)
         away_norm = normalize_team_name(payload.away_team)
@@ -220,7 +220,7 @@ def predict_auto_context(payload: PredictRequest):
 
 @app.post("/train")
 @limiter.limit("2/hour")
-def train(payload: TrainRequest) -> dict:
+def train(request: Request, payload: TrainRequest) -> dict:
     try:
         formatted_matches = [
             SimpleNamespace(
