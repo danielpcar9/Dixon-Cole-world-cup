@@ -788,7 +788,7 @@ def train_ratings(
     half_life_days: float = 730.0,
     reference_date: date | None = None,
     previous_ratings: dict[str, dict] | None = None,
-    rho_bounds: tuple[float, float] = (-0.50, 0.20),
+    rho_bounds: tuple[float, float] = (-0.20, 0.05),
     ftol: float = 1e-6,
     maxiter: int = 1000,
 ) -> dict[str, object]:
@@ -808,7 +808,7 @@ def train_ratings(
         previous_ratings: Diccionario de ratings previos para warm-start.
                          Formato: {"team_name": {"attack": x, "defense": y}, 
                                    "__gamma__": z, "__rho__": w}
-        rho_bounds: Tupla (min, max) para el parámetro rho. Default (-0.50, 0.20) para permitir convergencia natural
+        rho_bounds: Tupla (min, max) para el parámetro rho. Default (-0.20, 0.05) según modelo Dixon-Coles original
         ftol: Tolerancia de convergencia. Default 1e-6
         maxiter: Máximo de iteraciones. Default 1000
     
